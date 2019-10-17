@@ -61,7 +61,7 @@ sig_num <- siglefse %>%
   map_dfc(~ nrow(.)) %>% 
   gather(key = 'pw', value = 'taxa_num') %>% 
   arrange(desc(taxa_num)) %>% 
-  separate(pw, into = c('pwid','pw'), sep = ': ') %>% 
+  separate(pw, into = c('pwid','pw'), sep = ': ', remove = F) %>% 
   # for plotting reason filer on >= 9 rows
   filter(taxa_num >= 9)
   
@@ -71,7 +71,7 @@ sig_num <- siglefse %>%
 ## Starting from toxicity
 
 ```{r}
-species_compo_barplot <- function(PHENOVAR, PATHWAYID) {
+species_compo_barplot <- function(PATHWAYID, PWFULLNAME) {
   # TWO INPUTS: 
   # The pheno variable: CR, Toxicity, ORR
   # The full PATHWAYID
@@ -171,7 +171,7 @@ species_compo_barplot <- function(PHENOVAR, PATHWAYID) {
     scale_fill_manual(values = hex ) +
     labs(y = 'relative abundance',
          x = 'Sample',
-         title = str_glue('Response to Toxicity NO and YES:\nspecies composition of the pathway abundance\n{PATHWAYID}')) +
+         title = str_glue('Response to Toxicity NO (blue background) and YES (red background):\nspecies composition of the pathway abundance\n{PATHWAYID}: {PWFULLNAME}')) +
     theme_light() +
     theme(
       axis.text.x =  element_text(angle = 40, hjust = 1, size = 8),
@@ -182,10 +182,11 @@ species_compo_barplot <- function(PHENOVAR, PATHWAYID) {
     ggsave(str_glue('../figs/species_pw/{PATHWAYID}.jpg'), width = 12, height = 8, dpi = 300)
 }  
 
-sig_num$pwid %>% 
-  map(~  species_compo_barplot('Toxicity', .))
 
 
+map2(sig_num$pwid, sig_num$pw, ~ species_compo_barplot(.x, .y))
 
+
+sig_num$pw
 ```
 

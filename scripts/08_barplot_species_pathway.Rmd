@@ -19,106 +19,50 @@ humann2_barplot produces plots of stratified HUMAnN2 features. Note: unlike many
 
 Here is an example of a HUMAnN2 barplot for a pathway (denitrification) that was preferentially enriched in Human Microbiome Project oral samples relative to other body sites. This figure uses many options from humann2_barplot, including *regrouping by genus*, *pseudolog scaling*, and *sorting samples by similarity and metadata*:
 
-```{r}
-# parse the distinct pathway feature in the lefse results from the class: CR and tox
-pw <- read_csv('../data/unique_enriched_pathways.csv') %>% 
-  # something has a f_ at the beginning need to trim that off too
-  mutate(pathway = str_replace(pathway, '^f_','')) %>% 
-  # extract the pathway id from the whole messy string
-  mutate(pwid = str_extract(pathway, '^.+_PWY|^PWY\\d*_\\d{3,4}')) %>% 
-  mutate(pwid = str_replace_all(pwid, '_','-')) 
 
-```
+## Make species level bar plot using humann2 script
 
-
-## Make species level bar plot  
+### Create the correct pheno and relab table format
 
 ```{r}
-# check one last time whether the damn sampleids align
-cnts <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified.tsv') %>% 
-  rename_all(funs(str_replace(., '_Abundance$',''))) 
-
-# omg, its really hard to sort the pheno table the way I wanted, I will have to resort the cnts table to match
-# reorder the relab column to be the same with pheno table
-cnts_or <- bind_cols(cnts[,1],cnts[,pheno$Sampleid]) 
-
-# just to be sure
-all.equal(colnames(cnts_or)[2:ncol(cnts_or)], pheno$Sampleid)
-
-# write out the reordered cnts file
-cnts_or %>% 
-  write_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv' )
-
-# write out the pheno as metadata
-pheno %>% 
-  select(Toxicity) %>% 
+# ok so the correct format should be header at the first row, and phenotype and then the abundance values 
+# pheno table 
+read_csv('../data/cleaned_pheno/current_pheno.csv') %>% 
+  filter(Sampleid %in% valid_s$X1) %>% 
+  select(-Censor_YN, -Censor_reason) %>% 
+  # USE THE Toxicity PHENO FIRST
+  select(Sampleid, Toxicity) %>% 
   t() %>% 
-  write.table(str_glue('../data/tox_pheno.tsv'), sep = '\t', quote = F, row.names = T, col.names = F)
+  write.table('../data/horizontal_pheno/tox_wi_sample_header.txt', quote = F, row.names = T, col.names = F, sep = '\t')
 
-
-cnts_or_ <- cnts_or %>% 
-  column_to_rownames('# Pathway')
-
-in_meta_t <- data.frame(t(pheno %>% 
-  select(Toxicity)), stringsAsFactors = FALSE) 
-
-names(in_meta_t) <- names(cnts_or_)
-cat_pw_table <- rbind(in_meta_t, cnts_or_ )
-
-cat_pw_table %>% 
-  write.table('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.pcl',
-              quote = F,
-              col.names=FALSE, 
-              row.names=TRUE, 
-              sep="\t")
-
+# reordered relab table but without header
+read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv') %>% 
+  write_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_wo_header.tsv', col_names = F)
 ```
+
+### row bind them together
 
 ```{bash}
 # guess we need to cat the pheno and cnts together?
-cat ../data/tox_pheno.tsv \
-    ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv > \
-    ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.pcl
+cat ../data/horizontal_pheno/tox_wi_sample_header.txt \
+    ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_wo_header.tsv > \
+    ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.tsv
 ```
 
+FINALLY WORKED!!!!!!!!!!!!!!!!!!!!!!
 
 ```{bash}
 # the actual cmd to plot 
 humann2_barplot  \
-  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.pcl \
+  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.tsv \
   --focal-feature PWY-4242 \
-  --sort similarity metadata \
+  --sort similarity sum metadata \
   --focal-metadatum Toxicity --last-metadatum Toxicity \
   --scaling pseudolog \
   --dimensions 10 5 \
   -o ../figs/PWY-4242_pw.png
 ```
 
-```{bash}
-# without metadata
-humann2_barplot  \
-  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv \
-  --focal-feature PWY-4242 \
-  --sort sum \
-  --dimensions 10 5 \
-  -o ../figs/PWY-4242_pw.png
-  
-  #   --scaling pseudolog \
-```
-
-
-```{bash}
-# the actual cmd to plot 
-`humann2_barplot  \
-  --input ../data/humann2_res/test_ARO-PWY_pw_abundance.tsv \
-  --focal-feature ARO-PWY \
-  --sort metadata \
-  --focal-metadatum Toxicity --last-metadatum Toxicity \
-  --scaling pseudolog \
-  --dimensions 10 5 \
-  -o ../figs/ARO-PWY_pw.png`
-   
-```
 
 ## Make genus level bar plot 
 
