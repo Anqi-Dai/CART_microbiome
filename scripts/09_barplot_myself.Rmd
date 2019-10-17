@@ -62,15 +62,15 @@ mean_s <- cnt %>%
   apply(., 1, mean) %>% 
   sort(decreasing = T)
 
-# top 8
-n <- 8
-toppw <- names(mean_s)[1:n]
-
+# top n (variable) including unclassified
+n <- floor(length(mean_s)*0.15) 
+toppw <- names(mean_s)[1:n] 
+ 
 # colors and dark gray and light gray
 hex <- c(brewer.pal(n -1, name = "Dark2"), '#A9A9A9', '#696969')
 
 
-# now reduce the abundance to 9 rows, the top 8 and "other"
+# now reduce the abundance to 9 rows, the top 8 and "other" (the current will work if the df has >= 9 rows)
 
 # split on whether in 8 or in "other"
 splitother <- cnt %>% 
@@ -139,24 +139,27 @@ ggplot() +
   ggsave('../figs/species_pw/PWY-4242: pantothenate and coenzyme A biosynthesis III.jpg', width = 12, height = 8, dpi = 300)
 ```
 
-
 ## Find how many sig pathways from lefse I wanna plot
+
 
 ```{r}
 # load the table that has the unique sig pathways
-sigpw <- read_csv('../data/unique_sig_pathway.csv')
+sigpw <- read_csv('../data/unique_sig_pathway.csv') %>% 
+  # grab the pw id which is gonna be able to match the rownames in the stratified table
+  mutate(pwid = str_extract(pathway, '^.+_PWY|^PWY_\\d{3,4}'))  %>% 
+  mutate(pwid = str_replace_all(pwid, '_', '-'))
 
 # find how many species total it has in all of the lefse sig pathways
-siglefse <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv') %>% 
-  filter(str_detect(pathway,  paste0(pw$pwid, collapse = '|'))) %>% 
-  separate(X1, into = c('pwid','taxa'), sep = '\\|')
+siglefse <- stratified %>% 
+  filter(str_detect(pathway,  paste0(sigpw$pwid, collapse = '|'))) %>% 
+  separate(pathway, into = c('pwid','taxa'), sep = '\\|')
 
 sig_num <- siglefse %>% 
   split(f = .$pwid) %>% 
   map_dfc(~ nrow(.)) %>% 
   gather(key = 'pw', value = 'taxa_num') %>% 
   arrange(desc(taxa_num)) %>% 
-  separate(pw, into = c('pwid','pw'), sep = ': ')
+  separate(pw, into = c('pwid','pw'), sep = ': ') 
   
 ```
 
