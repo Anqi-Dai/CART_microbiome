@@ -26,6 +26,7 @@ Here is an example of a HUMAnN2 barplot for a pathway (denitrification) that was
 
 ```{r}
 # ok so the correct format should be header at the first row, and phenotype and then the abundance values 
+valid_s <- read_table('../data/input_for_cluster_sampleid/valid_sample_names.txt', col_names = F)
 # pheno table 
 read_csv('../data/cleaned_pheno/current_pheno.csv') %>% 
   filter(Sampleid %in% valid_s$X1) %>% 
@@ -60,7 +61,24 @@ humann2_barplot  \
   --focal-metadatum Toxicity --last-metadatum Toxicity \
   --scaling pseudolog \
   --dimensions 10 5 \
-  -o ../figs/PWY-4242_pw.png
+  -o ../figs/barplot_humann2/PWY-4242_pw.png
+```
+
+### now make the cmd with str_glue
+
+```{r}
+# load the sig pathway table with pwid
+cmd_barplot <- read_csv('../data/unique_sig_pathway_with_clean_pwid.csv') %>% 
+  select(pwid) %>% 
+  mutate(barcmd = str_glue('humann2_barplot  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.tsv --focal-feature {pwid} --sort similarity sum metadata --focal-metadatum Toxicity --last-metadatum Toxicity --scaling pseudolog --dimensions 10 5 -o ../figs/barplot_humann2/{pwid}_pw.png')) %>% 
+  select(barcmd) 
+
+cmd_barplot %>% 
+  write.table('humann2_bar_cmd.sh', quote = F, col.names = F, row.names = F )
+```
+
+```{bash}
+bash humann2_bar_cmd.sh
 ```
 
 

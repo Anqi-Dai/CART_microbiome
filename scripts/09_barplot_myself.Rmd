@@ -46,15 +46,15 @@ stratified %>%
 
 ```{r}
 # load the table that has the unique sig PATHWAYIDs
-sigpw <- read_csv('../data/unique_sig_PATHWAYID.csv') %>% 
+sigpw <- read_csv('../data/unique_sig_pathway.csv') %>% 
   # grab the pw id which is gonna be able to match the rownames in the stratified table
-  mutate(pwid = str_extract(PATHWAYID, '^.+_PWY|^PWY_\\d{3,4}'))  %>% 
+  mutate(pwid = str_extract(pathway, '^.+_PWY|^PWY_\\d{3,4}'))  %>% 
   mutate(pwid = str_replace_all(pwid, '_', '-'))
 
 # find how many species total it has in all of the lefse sig PATHWAYIDs
 siglefse <- stratified %>% 
-  filter(str_detect(PATHWAYID,  paste0(sigpw$pwid, collapse = '|'))) %>% 
-  separate(PATHWAYID, into = c('pwid','taxa'), sep = '\\|')
+  filter(str_detect(pathway,  paste0(sigpw$pwid, collapse = '|'))) %>% 
+  separate(pathway, into = c('pwid','taxa'), sep = '\\|')
 
 sig_num <- siglefse %>% 
   split(f = .$pwid) %>% 
@@ -65,6 +65,10 @@ sig_num <- siglefse %>%
   # for plotting reason filer on >= 9 rows
   filter(taxa_num >= 9)
   
+
+# aoutput the reformatted sigpw table
+sigpw %>% 
+  write_csv('../data/unique_sig_pathway_with_clean_pwid.csv')
 ```
 
 
