@@ -1,0 +1,74 @@
+---
+title: "Replot the lefse plots with ggplot"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+Replot the lefse plots with ggplot2 (with each class + subclass combi)
+
+## Combine and clean the res table from lefse
+
+```{r}
+# the input : lefse res files
+fns <- list.files('../data/lefse_input/', pattern = 'pathway_abundace_pheno__[CR|Toxicity].+res$', full.names = T)
+
+fns_name <- list.files('../data/lefse_input/', pattern = 'pathway_abundace_pheno__[CR|Toxicity].+res$')
+
+# join all of the tables feature together
+feature <- fns %>% 
+  set_names(fns_name) %>% 
+  map(~ read_tsv(., col_names = c('pathway','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  bind_rows(.id = 'group') %>% 
+  mutate(group = str_replace(group, 'pathway_abundace_pheno__','')) %>% 
+  mutate(group = str_replace(group, '.res$','')) %>% 
+  mutate(pathway = str_replace_all(pathway, '^f_','')) %>% 
+  select(-xx, -pval)
+
+# change the "N" direction to be minus score
+feature <- bind_rows(
+  feature %>% 
+    split(.$direction) %>% 
+    pluck('N') %>% 
+    mutate(score = -score),
+  feature %>% 
+    split(.$direction) %>% 
+    pluck('Y') 
+) %>% 
+  arrange(group, pathway, score)
+```
+
+```{r}
+# output the sig unique pathway from the above table for later use in the bar plot
+feature  %>% 
+  distinct(pathway) %>% 
+  write_csv('../data/unique_sig_pathway.csv')
+```
+
+
+## Recreate the lefse figure with ggplot
+
+Each combi per figure
+
+```{r}
+feature %>% 
+  split(.$group) %>% 
+  map(~  ggplot(data = ., aes(x = reorder(pathway, score), y = score, fill = direction)) +
+  geom_bar(stat='identity') +
+  coord_flip() +
+  scale_color_manual(values = c('#00468B', '#EC0000'))  +
+  scale_fill_manual(values = c('#00468B', '#EC0000')) +
+  theme_minimal() +
+  theme(axis.title.y  = element_blank(), 
+        legend.position="bottom") +
+  labs(title = str_glue('Response to class (with subclass): {.$group}') ,
+       y = 'Score')+ 
+  ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to class (with subclass): {.$group}.pdf'), device = 'pdf', width = 15, height = 6, dpi = 300))
+ 
+```
+
+

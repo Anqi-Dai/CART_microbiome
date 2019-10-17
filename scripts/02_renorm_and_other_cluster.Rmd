@@ -1,0 +1,23 @@
+---
+title: "renorm of the genefa and pathway abundance"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is to document what happened.
+
+This step is done at the cluster
+
+For the given valid samples("1725E" "2222A" "2245A" removed)
+* merge them into one table (note that humann2 join table with take all of the tsv files that are in the folder)
+* renorm to relab
+* split them into stratified and unstratified
+
+```{bash}
+scp -r  daia1@lilac.mskcc.org:/home/daia1/my_workdir/samples/melody/humann2_final_out .
+```
+
+

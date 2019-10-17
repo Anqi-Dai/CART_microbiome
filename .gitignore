@@ -1,0 +1,6 @@
+/report
+/output
+/figs
+/data
+*.DS_Store
+/scripts/*html

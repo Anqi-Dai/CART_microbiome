@@ -1,0 +1,136 @@
+---
+title: "lefse with ORR"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# because there are currently 36 valid ORR samples so it needs to be normalized separately.
+
+* ORR & Toxicity
+
+```{r}
+# the two samples that are currenly NR in ORR
+NRs <- read_csv('../data/current_pheno.csv') %>% 
+  filter(ORR == "NR") %>% 
+  pull(Sampleid)
+
+# the current pathway abundance matrix that is unnormalized
+abun <- read_tsv('../data/humann2_res/humann2_pathabundance.tsv') %>% 
+  rename(sampleid = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  select(-NRs)
+ 
+ncol(abun) 
+
+# write out to do the normalization
+abun %>% 
+  write_tsv('../data/humann2_res/humann2_pathabundance_36.tsv')
+
+```
+
+```{bash}
+# renorm
+humann2_renorm_table --input humann2_pathabundance_36.tsv -u relab --output humann2_pathabundance_36_relab.tsv
+```
+
+```{bash}
+# split the table
+humann2_split_stratified_table --input humann2_pathabundance_36_relab.tsv --output humann2_final_out_36
+```
+
+```{r}
+# load the split table with 36 and align the sampleid with the pheno table
+cts <- read_tsv('../data/humann2_res/humann2_final_out_36/humann2_pathabundance_36_relab_unstratified.tsv')
+
+# ORR  there is gonna be 36 samples cuz 2 are NR
+pheno_O <- read_csv('../data/current_pheno.csv') %>% 
+  filter(ORR != "NR") %>% 
+  select(-CR, -Toxicity )
+
+# reorder the cts table
+cts <- bind_cols(cts[,1],cts[,pheno_O$Sampleid]) 
+
+# check if the sampleids really align now
+all.equal(colnames(cts)[2:ncol(cts)], pheno_O$Sampleid) 
+
+# write out the cts table for later binding
+cts %>% 
+  write_tsv('../data/cts_36_reorder.tsv')
+
+```
+
+# Different combination of the classes + subclasses
+
+```{r}
+# get different combination of the classes
+classes <- c('ORR')
+subclass <- c('Disease_Status_CAR','Disease_Class','CAR_Group')
+
+combi <- expand.grid(classes = classes,subclass = subclass)
+
+# just to be sure
+all.equal(pheno_O$Sampleid, colnames(cts)[2:ncol(cts)])
+
+# use each combi row in the above df to create the pheno table for the lefse input
+
+apply(combi, 1, function(row) {
+  pheno_O %>% 
+    select(row[['classes']], row[['subclass']]) %>% 
+    t() %>% 
+    write.table(str_glue('../data/lefse_input/pheno__{row[["classes"]]}__{row[["subclass"]]}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+})
+```
+
+# Create the formatted input for lefse
+
+```{r}
+# create the commad in df with str_glue and then output to a bash script
+pheno_combi <- data_frame(pheno_file = list.files('../data/lefse_input', pattern = 'pheno__ORR', full.names = T)) %>% 
+  mutate(combi = str_extract(pheno_file, 'pheno.+\\.'))  
+
+pheno_combi %>% 
+  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/cts_36_reorder.tsv > ../data/lefse_input/pathway_abundace_{combi}tsv')) %>% 
+  select(cat_cmd) %>% 
+  write_csv('cat_combi_3.sh', col_names = F)
+```
+
+```{r}
+# create the cmd to do the format input stuff
+pheno_combi %>% 
+  mutate(input_tsv = str_glue('../data/lefse_input/pathway_abundace_{combi}tsv'),
+         fmt_input = str_replace(input_tsv, 'tsv','in'),
+         fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -s 2 -u 3 -o 1000000')) %>% 
+  select(fmt_cmd) %>% 
+  write_csv('format_input_3.sh', col_names = F)
+```
+
+```{r}  
+# the actual step to run lefse
+pheno_combi %>%  
+  mutate(fmt_input = str_glue('../data/lefse_input/pathway_abundace_{combi}in'),
+         lefse_res = str_replace(fmt_input, 'in$','res'),
+         run_cmd = str_glue('run_lefse.py {fmt_input} {lefse_res}')) %>% 
+  select(run_cmd) %>% 
+  write_csv('run_lefse_3.sh', col_names = F)
+```
+
+```{r}
+# plotting cmd 
+pheno_combi %>% 
+  mutate(lefse_res = str_glue('../data/lefse_input/pathway_abundace_{combi}res'),
+         fea_png = str_glue('../figs/pathway_abundace_{combi}png'),
+         cmd = str_glue('plot_res.py {lefse_res}  {fea_png} --feature_font_size 4 --width 10 --dpi 300 --title {combi}')) %>% 
+  select(cmd) %>% 
+  write_csv('plottint_de_feature_3.sh', col_names = F)
+  
+# No differentially abundant features found  
+```
+
+  
+
+ 
+ 

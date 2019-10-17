@@ -1,0 +1,89 @@
+---
+title: "Check the pathway cpm of the feature"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+```
+
+Check the pathway abundance in cpm to see if there is a decent effect size
+
+```{r}
+fn <- read_tsv('../data/humann2_res/humann2_final_out_cpm/humann2_pathabundance_cpm_unstratified.tsv') %>%
+  rename(pathway = names(.)[1]) %>% 
+  # remove the things up till the colon
+  mutate(pathway = str_replace_all(pathway, '^.+\\: ','')) %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  # removing things in the parenthesis and remove the spaces in the pathway
+  mutate(pathway = str_replace_all(pathway, ' \\(.+\\)',''),
+         pathway = str_replace_all(pathway, ' ',''))
+```
+
+```{r}
+# loading the enriched pathways from 6 combi and filter on the abundance matrix
+feat_pw <- read_csv('../data/unique_enriched_pathways.csv')
+
+cpms <- fn %>% 
+  filter(pathway %in% feat_pw$pathway)
+
+# only half is exactly the same
+
+same_pw <- cpms %>% 
+  pull(pathway)
+```
+
+```{r}
+# plot the counts 
+# get the pheno info of those samples
+pheno <- read_csv('../data/current_pheno.csv')
+
+res <- cpms %>% 
+  gather(key = 'Sampleid', value = 'cpm', '1191V' : 'V0040A') %>% 
+  left_join(pheno, by = 'Sampleid')
+
+res
+```
+
+```{r}
+ 
+same_pw %>% 
+  map(~ res %>% 
+          arrange(CR, desc(cpm)) %>% 
+          filter(pathway == .) %>% 
+          ggbarplot(x = 'Sampleid', y = 'cpm', fill = 'CR', color = 'CR') +
+          scale_color_manual(values = c('#00468B', '#EC0000'))  +
+          scale_fill_manual(values = c('#00468B', '#EC0000')) +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8)) +
+          labs(title = str_glue('Pathway: {.}')) +
+          ggsave(str_glue('../figs/pathway_abundance_cpm_{.}.jpg'), width = 4, height = 3, dpi = 300))
+
+
+for (i in same_pw) {
+  res %>% 
+          arrange(Toxicity, desc(cpm)) %>% 
+          filter(pathway == i) %>% 
+          ggbarplot(x = 'Sampleid', y = 'cpm', fill = 'Toxicity', color = 'Toxicity') +
+          scale_color_manual(values = c('#00468B', '#EC0000'))  +
+          scale_fill_manual(values = c('#00468B', '#EC0000')) +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8)) +
+          labs(title = str_glue('Pathway: {i}')) +
+          ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/pathway_abundance_cpm/Toxicity/pathway_abundance_cpm_{i}.jpg'), width = 8, height = 6, dpi = 300)
+}
+
+```
+
+```{r}
+res %>% 
+    arrange(CR, desc(cpm)) %>% 
+    filter(pathway == 'pantothenateandcoenzymeAbiosynthesisI') %>% 
+    ggbarplot(x = 'Sampleid', y = 'cpm', fill = 'CR', color = 'CR') +
+    scale_color_manual(values = c('#00468B', '#EC0000'))  +
+    scale_fill_manual(values = c('#00468B', '#EC0000')) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8)) +
+    labs(title = str_glue('Pathway: pantothenateandcoenzymeAbiosynthesisI')) +
+    ggsave(str_glue('../figs/tox/pathway_abundance_cpm_pantothenateandcoenzymeAbiosynthesisI.jpg'), width = 4, height = 3, dpi = 300)
+```
+

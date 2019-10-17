@@ -1,0 +1,84 @@
+---
+title: "I mean really clean the pheno and get to know the hell of the samples"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
+library(tidyverse)
+library(readxl)
+library(RVenn)
+```
+
+## Valid patient samples
+
+```{r}
+# the newest pheno table from M
+# this sheet have nice sampleids for the samples, and also this is the table has all of the info
+phe_M <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 10162019.xlsx',
+                    sheet = 5)
+```
+
+```{r}
+# selecting the columns relavant to this study
+phe_M_clean <- phe_M %>% 
+   rename_all(funs(str_replace_all(., ' \\(.+$','') %>% 
+    str_replace_all(., ' ','_') %>% 
+    str_replace(., ':','_'))) %>% 
+  # select the columns that may be relavant
+  select(Sampleid = Baseline_Sample_ID, 
+         Censor_YN,
+         Censor_reason,
+         CR, 
+         ORR, 
+         Toxicity, 
+         Disease_Status_CAR = Key__Patient_Disease_Status_at_CAR, 
+         Disease_Class, 
+         CAR_Group) %>% 
+  filter(is.na(Censor_reason)) %>% 
+  # remove this one record that doesn't seem to be a valid record at all
+  filter(!is.na(CR))
+
+nrow(phe_M_clean)
+
+head(phe_M_clean)
+
+
+# output this pheno table cuz its gonna be used downstream
+phe_M_clean %>% 
+  write_csv('../data/cleaned_pheno/current_pheno.csv')
+```
+
+
+## Valid shotgun data
+
+```{r}
+# loading the table from John to see how many samples we actually have shotgun data
+have_sg <- read_csv('../data/baselinesforAngel10032019.csv') %>% 
+  filter(shotgun_YN == 'yes') %>% 
+  # removig 1943A cuz its low quality
+  filter(sample_id != '1943A') %>% 
+  # THERE ARE THREE THAT ARE CURRENTLY BEING SEQUENCED, WE DON'T HAVE YET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  filter(!sample_id %in% c('161','171','173'))
+
+nrow(have_sg)
+
+```
+
+## Overlap: the real valid shotgun samples
+
+```{r}
+# visualize the difference 
+two <- Venn(list(
+  have_file = have_sg$sample_id,
+  useable = phe_M_clean$Sampleid
+))  
+ 
+ggvenn(two)      
+```
+```{r}
+# write out the overlap sampleid cuz that's gonna be the sample_names in use on the cluster for normalization
+intersect(have_sg$sample_id, phe_M_clean$Sampleid) %>% 
+  write.table('../data/input_for_cluster_sampleid/valid_sample_names.txt', col.names = F, row.names = F, quote = F)
+```
+

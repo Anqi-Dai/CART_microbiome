@@ -1,0 +1,3 @@
+plot_res.py ../data/lefse_input/pathway_abundace_pheno__ORR__CAR_Group.res  ../figs/pathway_abundace_pheno__ORR__CAR_Group.png --feature_font_size 4 --width 10 --dpi 300 --title pheno__ORR__CAR_Group.
+plot_res.py ../data/lefse_input/pathway_abundace_pheno__ORR__Disease_Class.res  ../figs/pathway_abundace_pheno__ORR__Disease_Class.png --feature_font_size 4 --width 10 --dpi 300 --title pheno__ORR__Disease_Class.
+plot_res.py ../data/lefse_input/pathway_abundace_pheno__ORR__Disease_Status_CAR.res  ../figs/pathway_abundace_pheno__ORR__Disease_Status_CAR.png --feature_font_size 4 --width 10 --dpi 300 --title pheno__ORR__Disease_Status_CAR.

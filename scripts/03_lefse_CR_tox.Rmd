@@ -1,0 +1,142 @@
+---
+title: "Format for lefse and run on the classes CR and tox"
+output: html_document
+---
+       
+Melody's project
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+# Run unstratified pathway abundance of Melody's project thru lefse
+* CR & Toxicity
+
+Now we have 3 subclasses and together with the 2 classes of 35 that gonna make a total combination of 6
+
+## Sorting out the pheno table for the valid samples
+
+```{r}
+# loading the table with the valid sampleids
+valid_s <- read_table('../data/input_for_cluster_sampleid/valid_sample_names.txt', col_names = F)
+
+pheno <- read_csv('../data/cleaned_pheno/current_pheno.csv') %>% 
+  filter(Sampleid %in% valid_s$X1) %>% 
+  select(-Censor_YN, -Censor_reason ) 
+```
+
+## Creating the class+subclass combi
+ 
+```{r}
+# get different combination of the classes
+classes <- c('CR', 'Toxicity')
+subclass <- c('Disease_Status_CAR','Disease_Class','CAR_Group')
+
+combi <- expand.grid(classes = classes,subclass = subclass)
+
+# use each combi row in the above df to create the pheno table for the lefse input
+
+apply(combi, 1, function(row) {
+  pheno %>% 
+    select(row[['classes']], row[['subclass']]) %>% 
+    t() %>% 
+    write.table(str_glue('../data/lefse_input/pheno__{row[["classes"]]}__{row[["subclass"]]}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+})
+```
+  
+## Sorting the relab abundance table so that sampleid would align  
+  
+```{r}
+# input: relative abundance unstratified for pathway abundance
+relab <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_unstratified.tsv') %>% 
+  rename(sampleid = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  # remove the unmapped and the unintegrated record
+  filter(!sampleid %in% c('UNMAPPED','UNINTEGRATED'))
+
+# see if the sampleid in the relab is clean(do I need to clean additionally)
+all.equal(sort(pheno$Sampleid), sort(colnames(relab)[2:ncol(relab)])) 
+
+# reorder the relab column to be the same with pheno table
+relab_or <- bind_cols(relab[,1],relab[,pheno$Sampleid]) 
+
+# just to be sure
+all.equal(colnames(relab_or)[2:ncol(relab_or)], pheno$Sampleid)
+
+# write out the table
+relab_or %>% 
+  write_tsv('../data/pheno_aligned_relab_table/humann2_pathabundance_relab_unstratified.tsv')
+```
+
+
+## Create the bash commmand to run the lefse steps
+
+```{r}
+# create the commad in df with str_glue and then output to a bash script
+pheno_combi <- data_frame(pheno_file = list.files('../data/lefse_input', pattern = '.txt$', full.names = T)) %>% 
+  mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
+
+pheno_combi %>% 
+  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/pheno_aligned_relab_table/humann2_pathabundance_relab_unstratified.tsv > ../data/lefse_input/pathway_abundace_{combi}tsv')) %>% 
+  select(cat_cmd) %>% 
+  write_csv('cat_combi_6.sh', col_names = F)
+```
+
+
+```{r}
+# create the cmd to do the format input stuff
+pheno_combi %>% 
+  mutate(input_tsv = str_glue('../data/lefse_input/pathway_abundace_{combi}tsv'),
+         fmt_input = str_replace(input_tsv, 'tsv','in'),
+         fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -s 2 -u 3 -o 1000000')) %>% 
+  select(fmt_cmd) %>% 
+  write_csv('format_input_6.sh', col_names = F)
+```
+
+
+```{r}
+# the actual step to run lefse
+pheno_combi %>% 
+  mutate(fmt_input = str_glue('../data/lefse_input/pathway_abundace_{combi}in'),
+         lefse_res = str_replace(fmt_input, 'in$','res'),
+         run_cmd = str_glue('run_lefse.py {fmt_input} {lefse_res}')) %>% 
+  select(run_cmd) %>% 
+  write_csv('run_lefse.sh', col_names = F)
+```
+
+
+```{r}
+# plotting cmd 
+pheno_combi %>% 
+  mutate(lefse_res = str_glue('../data/lefse_input/pathway_abundace_{combi}res'),
+         fea_png = str_glue('../figs/pathway_abundace_{combi}png'),
+         cmd = str_glue('plot_res.py {lefse_res}  {fea_png} --feature_font_size 4 --width 10 --dpi 300 --title {combi}')) %>% 
+  select(cmd) %>% 
+  write_csv('plotting_de_feature.sh', col_names = F)
+```
+
+####################################### below is command line ##########################################
+
+## Run in terminal the below bash script
+
+```{bash}
+# this is the bash script to do the actual concatenation 
+bash cat_combi_6.sh
+```
+
+```{bash}
+# run in the cmd line THIS HAS TO BE DONE IN THE CMD SINCE RSTUDIO DOES NOT RECOGNIZE THE LEFSE SCRIPT
+bash format_input_6.sh
+```
+
+```{bash}
+bash run_lefse.sh
+```
+
+```{bash}
+bash plotting_de_feature.sh
+```
+
+
+

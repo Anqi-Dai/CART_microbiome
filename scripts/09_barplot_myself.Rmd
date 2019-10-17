@@ -1,0 +1,164 @@
+---
+title: "Humann2 bar plot by myself"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The stacked bar plot like humann2 did, but do it myself.
+
+```{r}
+# send the test file to google group
+# read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.pcl', col_names = F) %>% 
+#   filter(str_detect(X1, 'ARO-PWY|Toxicity'))  %>% 
+#   write_tsv('../data/humann2_res/test_ARO-PWY_pw_abundance.tsv', col_names = F)
+```
+
+## Reorder the stratified pathabundance table and align with the pheno sampleid
+
+```{r}
+# pheno table 
+pheno <- read_csv('../data/cleaned_pheno/current_pheno.csv')%>% 
+  filter(Sampleid %in% valid_s$X1) %>% 
+  select(-Censor_YN, -Censor_reason ) 
+
+# the stratified table is used cuz we wanna know the species info
+stratified <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified.tsv') %>% 
+  rename(pathway = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance$','')))
+
+stratified <- bind_cols(stratified[,1],stratified[,pheno$Sampleid]) 
+
+all.equal(colnames(stratified)[2:ncol(stratified)], pheno$Sampleid)
+
+# write out this reordered table for later use
+stratified %>% 
+  write_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv')
+```
+
+### Starting from toxicity
+
+```{r}
+# get the pheno lable of the samples
+phelabel <-  pheno %>% 
+  select(Sampleid, Toxicity)
+
+
+cnt <- stratified %>% 
+  filter(str_detect(pathway, 'PWY-4242: pantothenate and coenzyme A biosynthesis III')) %>% 
+  mutate(pathway = str_replace(pathway, 'PWY-4242: pantothenate and coenzyme A biosynthesis III\\|', ''))  %>% 
+  # extract the species info
+  mutate(pathway = str_extract(pathway, 's__.+$|unclassified'),
+         pathway = str_replace(pathway, 's__','')) %>% 
+  rename(species = pathway) 
+
+# get the top 7 taxa and the unclassfied and other for all the others 
+# get the above table 
+mean_s <- cnt %>% 
+  column_to_rownames('species') %>% 
+  as.matrix() %>% 
+  apply(., 1, mean) %>% 
+  sort(decreasing = T)
+
+# top 8
+n <- 8
+toppw <- names(mean_s)[1:n]
+
+# colors and dark gray and light gray
+hex <- c(brewer.pal(n -1, name = "Dark2"), '#A9A9A9', '#696969')
+
+
+# now reduce the abundance to 9 rows, the top 8 and "other"
+
+# split on whether in 8 or in "other"
+splitother <- cnt %>% 
+  split(f = str_detect(.$species, paste0(toppw, collapse = '|')))
+
+cleaned_cnt <- bind_rows(splitother %>% 
+    pluck('TRUE'),
+  splitother %>% 
+    pluck('FALSE') %>% 
+    gather(key = 'Sample', value = 'relab', names(.)[2]: names(.)[ncol(.)]) %>% 
+    group_by(Sample) %>% 
+    summarise(other = sum(relab)) %>% 
+    spread(Sample , other) %>% 
+    mutate(species = 'Other') %>% 
+    select(species, pheno$Sampleid)) %>% 
+  # rearrange the species order factor lever
+  mutate(species = factor(species, levels = c(toppw[toppw != 'unclassified'] , 'Other', 'unclassified'))) %>% 
+  # the long format is the one for plotting
+  gather(key = 'Sample', value = 'relab', names(.)[2]: names(.)[ncol(.)]) %>% 
+  left_join(phelabel %>% 
+              rename(Sample = Sampleid), by = 'Sample') %>% 
+  mutate(Toxicity = factor(Toxicity))
+
+
+# to put different color to the background to the phenotype
+# create a dataframe to show where the coloring start and end for each group
+# how many phenotypes ?
+num_pheno <- length(names(table(phelabel$Toxicity)))
+# have pre-defined background color for the pheno (to better contrast them)
+bg_col <- c('#00468B', '#EC0000')
+# number of samples in different pheno 
+# the first phenotype(appearing on the left most of the plot)
+phe1_num <- phelabel %>% 
+  mutate(Toxicity = factor(Toxicity)) %>% 
+  filter(Toxicity == as.character(levels(.$Toxicity)[1])) %>% 
+  nrow
+
+background_col <- data_frame(
+  col = bg_col,
+  xstart = c(0, phe1_num) + 0.5,
+  xend = c(phe1_num, nrow(phelabel))+ 0.5,
+  toxicity = names(table(phelabel$Toxicity))
+)
+
+# the ggplot
+ggplot() +
+  geom_bar(data = cleaned_cnt, 
+           aes(x = reorder(Sample, as.numeric(Toxicity)), y = relab, fill = species, color = Toxicity), stat = 'identity') +
+  geom_rect(data = background_col, 
+            aes(xmin = xstart, xmax = xend, ymin = -Inf, ymax = Inf), 
+            fill = background_col$col, 
+            alpha = 0.2) +
+  geom_bar(data = cleaned_cnt, aes(x = reorder(Sample, as.numeric(Toxicity)), y = relab, fill = species), stat = 'identity') +
+  #guides(alpha = FALSE) +
+  scale_fill_manual(values = hex) +
+  labs(y = 'relative abundance',
+       x = 'Sample',
+       title = str_glue('')) +
+  theme_light() +
+  theme(
+    axis.text.x = element_blank(),
+    panel.grid.major = element_blank(), 
+    axis.ticks.x = element_blank(),  
+    panel.grid.minor = element_blank()
+    ) +
+  ggsave('../figs/species_pw/PWY-4242: pantothenate and coenzyme A biosynthesis III.jpg', width = 12, height = 8, dpi = 300)
+```
+
+
+## Find how many sig pathways from lefse I wanna plot
+
+```{r}
+# load the table that has the unique sig pathways
+sigpw <- read_csv('../data/unique_sig_pathway.csv')
+
+# find how many species total it has in all of the lefse sig pathways
+siglefse <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv') %>% 
+  filter(str_detect(pathway,  paste0(pw$pwid, collapse = '|'))) %>% 
+  separate(X1, into = c('pwid','taxa'), sep = '\\|')
+
+sig_num <- siglefse %>% 
+  split(f = .$pwid) %>% 
+  map_dfc(~ nrow(.)) %>% 
+  gather(key = 'pw', value = 'taxa_num') %>% 
+  arrange(desc(taxa_num)) %>% 
+  separate(pw, into = c('pwid','pw'), sep = ': ')
+  
+```
+
+
+

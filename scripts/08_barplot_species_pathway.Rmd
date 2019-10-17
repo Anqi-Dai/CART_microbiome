@@ -1,0 +1,135 @@
+---
+title: "Bar plot species contribution to pathway with humann2 script"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(RColorBrewer)
+```
+
+humann2_barplot
+Basic usage: *humann2_barplot --input TABLE.tsv --feature FEATURE --outfile $FIGURE*
+$TABLE.tsv = a stratified HUMAnN2 output file
+$FEATURE = Feature from the table to plot (defaults to first feature)
+$FIGURE = Where to save the figure
+Run with -h to see additional command line options
+humann2_barplot produces plots of stratified HUMAnN2 features. Note: unlike many other HUMAnN2 utilities, humann2_barplot requires the Python scientific stack (notably matplotlib) to operate. humann2_barplot includes many options for sorting and scaling data, as detailed in the --help menu. humann2_barplot is also explored in greater detail in the HUMAnN2 Tutorial.
+
+Here is an example of a HUMAnN2 barplot for a pathway (denitrification) that was preferentially enriched in Human Microbiome Project oral samples relative to other body sites. This figure uses many options from humann2_barplot, including *regrouping by genus*, *pseudolog scaling*, and *sorting samples by similarity and metadata*:
+
+```{r}
+# parse the distinct pathway feature in the lefse results from the class: CR and tox
+pw <- read_csv('../data/unique_enriched_pathways.csv') %>% 
+  # something has a f_ at the beginning need to trim that off too
+  mutate(pathway = str_replace(pathway, '^f_','')) %>% 
+  # extract the pathway id from the whole messy string
+  mutate(pwid = str_extract(pathway, '^.+_PWY|^PWY\\d*_\\d{3,4}')) %>% 
+  mutate(pwid = str_replace_all(pwid, '_','-')) 
+
+```
+
+
+## Make species level bar plot  
+
+```{r}
+# check one last time whether the damn sampleids align
+cnts <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified.tsv') %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) 
+
+# omg, its really hard to sort the pheno table the way I wanted, I will have to resort the cnts table to match
+# reorder the relab column to be the same with pheno table
+cnts_or <- bind_cols(cnts[,1],cnts[,pheno$Sampleid]) 
+
+# just to be sure
+all.equal(colnames(cnts_or)[2:ncol(cnts_or)], pheno$Sampleid)
+
+# write out the reordered cnts file
+cnts_or %>% 
+  write_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv' )
+
+# write out the pheno as metadata
+pheno %>% 
+  select(Toxicity) %>% 
+  t() %>% 
+  write.table(str_glue('../data/tox_pheno.tsv'), sep = '\t', quote = F, row.names = T, col.names = F)
+
+
+cnts_or_ <- cnts_or %>% 
+  column_to_rownames('# Pathway')
+
+in_meta_t <- data.frame(t(pheno %>% 
+  select(Toxicity)), stringsAsFactors = FALSE) 
+
+names(in_meta_t) <- names(cnts_or_)
+cat_pw_table <- rbind(in_meta_t, cnts_or_ )
+
+cat_pw_table %>% 
+  write.table('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.pcl',
+              quote = F,
+              col.names=FALSE, 
+              row.names=TRUE, 
+              sep="\t")
+
+```
+
+```{bash}
+# guess we need to cat the pheno and cnts together?
+cat ../data/tox_pheno.tsv \
+    ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv > \
+    ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.pcl
+```
+
+
+```{bash}
+# the actual cmd to plot 
+humann2_barplot  \
+  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.pcl \
+  --focal-feature PWY-4242 \
+  --sort similarity metadata \
+  --focal-metadatum Toxicity --last-metadatum Toxicity \
+  --scaling pseudolog \
+  --dimensions 10 5 \
+  -o ../figs/PWY-4242_pw.png
+```
+
+```{bash}
+# without metadata
+humann2_barplot  \
+  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered.tsv \
+  --focal-feature PWY-4242 \
+  --sort sum \
+  --dimensions 10 5 \
+  -o ../figs/PWY-4242_pw.png
+  
+  #   --scaling pseudolog \
+```
+
+
+```{bash}
+# the actual cmd to plot 
+`humann2_barplot  \
+  --input ../data/humann2_res/test_ARO-PWY_pw_abundance.tsv \
+  --focal-feature ARO-PWY \
+  --sort metadata \
+  --focal-metadatum Toxicity --last-metadatum Toxicity \
+  --scaling pseudolog \
+  --dimensions 10 5 \
+  -o ../figs/ARO-PWY_pw.png`
+   
+```
+
+## Make genus level bar plot 
+
+Genus level gene families and pathways
+By default, the gene families and pathways output files from HUMAnN2 are species level. To obtain genus level gene families and pathways, follow these steps.
+
+Create a genus level gene families file
+
+$ humann2_gene_families_genus_level --input $SAMPLE_genefamilies.tsv --output $SAMPLE_genefamilies_genus_level.tsv
+In this command, replace $SAMPLE_genefamilies.tsv with the species level gene families file created by default by HUMAnN2 and $SAMPLE_genefamilies_genus_level.tsv with the name of the gene families genus level file that will be created.
+Run HUMAnN2, with the genus level gene families file as input, to get genus level pathways output files
+
+$ humann2 --input $SAMPLE_genefamilies_genus_level.tsv --output humann2_genus_level_output
+This run will be much faster and require less memory than the original run as HUMAnN2 is provided gene family abundances so it only needs to compute the pathways.

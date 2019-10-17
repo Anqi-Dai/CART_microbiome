@@ -1,0 +1,101 @@
+---
+title: "Check the lefse feature overview"
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
+library(tidyverse)
+library(kableExtra)
+```
+
+```{r}
+# the input : lefse res files
+fns <- list.files('../data/lefse_input/', pattern = 'pathway_abundace_pheno__[CR|Toxicity].+res$', full.names = T)
+
+fns_name <- list.files('../data/lefse_input/', pattern = 'pathway_abundace_pheno__[CR|Toxicity].+res$')
+```
+
+```{r}
+# join all of the tables feature together
+feature <- fns %>% 
+  set_names(fns_name) %>% 
+  map(~ read_tsv(., col_names = c('pathway','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  bind_rows(.id = 'group') %>% 
+  mutate(group = str_replace(group, 'pathway_abundace_pheno__',''))
+ 
+   
+feature %>% 
+  distinct(pathway) %>% 
+  write_csv('../data/unique_enriched_pathways.csv')
+```
+
+```{r}
+# see the Y and N direction respectively
+Y_response <- feature %>% 
+  filter(direction == 'Y')
+
+Y_response %>% 
+  kable(caption = 'Yes CR and Yes tox') %>% 
+  kable_styling(full_width = F)
+
+```
+
+Some keywords appeared in yes CR and yes tox:
+
+* L-citrulline : boosts nitric oxide production in the body. Nitric oxide helps your arteries relax and work better, which improves blood flow throughout your body. This may be helpful for treating or preventing some diseases.
+* urate biosynthesis: related to purine metabolism.
+* About pantothenate and phosphopantothenate: Coenzyme A is synthesized in a five-step process from pantothenate. First, **pantothenate (Vitamin B5) is phosphorylated to 4'-phosphopantothenate by the enzyme pantothenate kinase,** next a cysteine is added to 4'-phosphopantothenate by the enzyme phosphopantothenoylcysteine synthetase to form 4'-phospho-N-pantothenoylcysteine (PPC). In the next step, PPC is decarboxylated to 4'-phosphopantetheine by phosphopantothenoylcysteine decarboxylase. In the fourth step, 4'-phosphopantetheine is adenylylated to form dephospho-CoA by the enzyme phosphopantetheine adenylyl transferase. Finally, dephospho-CoA is phosphorylated using ATP to coenzyme A by the enzyme dephosphocoenzyme A kinase.
+* tetrahydrofolate (vitamin B9)
+
+
+```{r}
+N_response <- feature %>% 
+  filter(direction == 'N')
+
+
+N_response %>% 
+  kable(caption = 'No CR and no tox') %>% 
+  kable_styling(full_width = F)
+```
+
+```{r}
+# it looks like pantothenate biosynthesis is associated with no CR and no Tox regardless what subclass you have
+N_response %>% 
+  mutate(vb5 = str_detect(pathway, '^pantothenate')) %>% 
+  separate(group, into = c('class','subclass'), sep = '__') %>% 
+  group_by(class, subclass, direction,  vb5) %>% 
+  summarise(cnt = n()) %>% 
+  filter(vb5 == 'TRUE') %>% 
+  kable(caption = 'Pantothenate biosynthesis existence in all class + subclass combinations') %>% 
+  kable_styling(full_width = F)
+```
+
+It looks like pantothenate biosynthesis is associated with no CR and no Tox regardless what subclass you have
+
+### what about the yes to CR and no to tox
+
+```{r}
+ideal <- feature  %>% 
+  separate(group , into = c('class','subclass'), sep = '__') %>% 
+  mutate(together = str_glue('{class}_{direction}')) %>% 
+  filter(together %in% c('CR_Y','Toxicity_N'))
+
+noidea <- feature  %>% 
+  separate(group , into = c('class','subclass'), sep = '__') %>% 
+  mutate(together = str_glue('{class}_{direction}')) %>% 
+  filter(together %in% c('CR_N','Toxicity_Y'))
+```
+
+
+
+
+
