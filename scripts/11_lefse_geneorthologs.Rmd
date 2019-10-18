@@ -41,14 +41,16 @@ apply(combi, 1, function(row) {
 ```{r}
 stra_go <- read_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified.tsv') %>% 
   rename(sampleid = names(.)[1]) %>% 
-  rename_all(funs(str_replace(., '_Abundance-RPKs$','')))
+  rename_all(funs(str_replace(., '_Abundance-RPKs$',''))) %>% 
+  # remove the ungrouped since it's not really giving gene fam info
+  filter(! str_detect(sampleid, '^UNGROUPED'))
 
 stra_go <- bind_cols(stra_go[,1],stra_go[,pheno$Sampleid]) 
 
 all.equal(pheno$Sampleid, colnames(stra_go)[2:ncol(stra_go)])
  
 # write out
-
+ 
 stra_go %>% 
   write_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified_reordered.tsv')
 ```
@@ -106,6 +108,6 @@ pheno_combi %>%
 bash cat_combi_genef.sh
 bash format_input_genef.sh
 bash run_lefse_genef.sh
-bash plotting_de_feature_genef.sh
+
 ```
 

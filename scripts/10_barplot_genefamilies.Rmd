@@ -38,8 +38,36 @@ humann2_split_stratified_table --input ../data/humann2_res/humann2_genefamilies_
 ## What features(gene orthologs) do you wanna see? Do lefse first.
 
 ```{r}
+# load the lefse res of tox
+# the input : lefse res files
+fns <- list.files('../data/lefse_genefam/', pattern = 'genefam_abundace_pheno__[CR|Toxicity].+res$', full.names = T)
+fns_name <- list.files('../data/lefse_genefam/', pattern = 'genefam_abundace_pheno__[CR|Toxicity].+res$')
+
+# join all of the tables feature together
+feature <- fns %>% 
+  set_names(fns_name) %>% 
+  # when meeting parsing failures, you need to specify all column types.
+  map(~ read_tsv(., col_names = c('genefam','xx','direction','score','pval'),  col_types = 'ccccc') %>% 
+        filter(!is.na(score))) %>% 
+  bind_rows(.id = 'group') %>% 
+  mutate(group = str_replace(group, 'genefam_abundace_pheno__','')) %>% 
+  mutate(group = str_replace(group, '.res$','')) %>% 
+  select(-xx, -pval)
+ 
+# change the "N" direction to be minus score
+# feature <- bind_rows(
+#   feature %>% 
+#     split(.$direction) %>% 
+#     pluck('N') %>% 
+#     mutate(score = -score),
+#   feature %>% 
+#     split(.$direction) %>% 
+#     pluck('Y') 
+# ) %>% 
+#   arrange(group, pathway, score)
+
+feature %>% 
+  write_csv('../data/lefse_genefam/with_unmapped_sig_feature.csv')
 
 ```
-
-
 
