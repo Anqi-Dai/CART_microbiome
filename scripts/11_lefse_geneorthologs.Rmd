@@ -1,0 +1,111 @@
+---
+title: "Lefse on gene orthologs"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+## Make pheno table(with only classes)
+
+```{r}
+# loading the table with the valid sampleids
+pheno <- read_csv('../data/current_pheno.csv') %>% 
+  filter(! Sampleid %in% c("1725E", "2222A" ,"2245A"))
+
+```
+
+```{r}
+# get different combination of the classes
+classes <- c('CR', 'Toxicity')
+
+#subclass <- c('Disease_Status_CAR','Disease_Class','CAR_Group')
+combi <- expand.grid(classes = classes)
+
+# use each combi row in the above df to create the pheno table for the lefse input
+apply(combi, 1, function(row) {
+  pheno %>% 
+    mutate(CR = str_glue('CR_{CR}'),
+           Toxicity = str_glue('Toxicity_{Toxicity}')) %>% 
+    select(row[['classes']]) %>% 
+    t() %>% 
+    write.table(str_glue('../data/lefse_genefam/pheno__{row[["classes"]]}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+})
+```
+
+## Reorder the GO stratified table
+
+```{r}
+stra_go <- read_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified.tsv') %>% 
+  rename(sampleid = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance-RPKs$','')))
+
+stra_go <- bind_cols(stra_go[,1],stra_go[,pheno$Sampleid]) 
+
+all.equal(pheno$Sampleid, colnames(stra_go)[2:ncol(stra_go)])
+ 
+# write out
+
+stra_go %>% 
+  write_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified_reordered.tsv')
+```
+
+## str_glue
+
+```{r}
+# create the commad in df with str_glue and then output to a bash script
+pheno_combi <- data_frame(pheno_file = list.files('../data/lefse_genefam', pattern = '.txt$', full.names = T)) %>% 
+  mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
+
+pheno_combi %>% 
+  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified_reordered.tsv > ../data/lefse_genefam/genefam_abundace_{combi}tsv')) %>% 
+  select(cat_cmd) %>% 
+  write_csv('cat_combi_genef.sh', col_names = F)
+```
+
+
+```{r}
+# create the cmd to do the format input stuff
+pheno_combi %>% 
+  mutate(input_tsv = str_glue('../data/lefse_genefam/genefam_abundace_{combi}tsv'),
+         fmt_input = str_replace(input_tsv, 'tsv','in'),
+         fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -u 2 -o 1000000')) %>% 
+  select(fmt_cmd) %>% 
+  write_csv('format_input_genef.sh', col_names = F)
+```
+
+
+```{r}
+# the actual step to run lefse
+pheno_combi %>% 
+  mutate(fmt_input = str_glue('../data/lefse_genefam/genefam_abundace_{combi}in'),
+         lefse_res = str_replace(fmt_input, 'in$','res'),
+         run_cmd = str_glue('run_lefse.py {fmt_input} {lefse_res}')) %>% 
+  select(run_cmd) %>% 
+  write_csv('run_lefse_genef.sh', col_names = F)
+```
+
+
+```{r}
+# plotting cmd 
+pheno_combi %>% 
+  mutate(lefse_res = str_glue('../data/lefse_genefam/genefam_abundace_{combi}res'),
+         fea_png = str_glue('../figs/genefam_abundace_{combi}png'),
+         cmd = str_glue('plot_res.py {lefse_res}  {fea_png} --feature_font_size 4 --width 10 --dpi 300 --title {combi}')) %>% 
+  select(cmd) %>% 
+  write_csv('plotting_de_feature_genef.sh', col_names = F)
+```
+
+
+## bash
+
+```{bash}
+bash cat_combi_genef.sh
+bash format_input_genef.sh
+bash run_lefse_genef.sh
+bash plotting_de_feature_genef.sh
+```
+
