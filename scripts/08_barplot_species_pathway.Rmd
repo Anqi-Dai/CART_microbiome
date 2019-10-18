@@ -67,18 +67,46 @@ humann2_barplot  \
 ### now make the cmd with str_glue
 
 ```{r}
-# load the sig pathway table with pwid
-cmd_barplot <- read_csv('../data/unique_sig_pathway_with_clean_pwid.csv') %>% 
-  select(pwid) %>% 
-  mutate(barcmd = str_glue('humann2_barplot  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.tsv --focal-feature {pwid} --sort similarity sum metadata --focal-metadatum Toxicity --last-metadatum Toxicity --scaling pseudolog --dimensions 10 5 -o ../figs/barplot_humann2/{pwid}_pw.png')) %>% 
-  select(barcmd) 
-
-cmd_barplot %>% 
-  write.table('humann2_bar_cmd.sh', quote = F, col.names = F, row.names = F )
+# highlight the bar plots of tox in pathways only come out tox lefse
+tox_pathway <- read_csv('../data/lefse_stats_all_sig_pathway.csv') %>% 
+  filter(str_detect(group, '^Toxicity')) %>% 
+  distinct(pathway, .keep_all = T) %>% 
+  select(pathway)  %>% 
+  mutate(pathway = str_replace(pathway, '^f_','')) %>% 
+  mutate(pwid = str_extract(pathway, '^.+_PWY|^PWY_\\d{3,4}'))  %>% 
+  mutate(pwid = str_replace_all(pwid, '_', '-')) 
+  
 ```
 
-```{bash}
-bash humann2_bar_cmd.sh
+
+# --exclude-unclassified
+
+```{r}
+# load the sig pathway table with pwid
+cmd_barplot <- tox_pathway %>% 
+  select(pwid) %>% 
+  mutate(barcmd = str_glue('humann2_barplot  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.tsv --focal-feature {pwid} --sort similarity sum metadata --exclude-unclassified --focal-metadatum Toxicity --last-metadatum Toxicity --scaling pseudolog --dimensions 10 5 -o /Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/species_contribution_barplot_humann2/without_unclassfified/Toxicity/{pwid}_pw_no_unclassfified.png')) %>% 
+  select(barcmd) 
+ 
+cmd_barplot %>% 
+  write.table('humann2_bar_cmd_no_unclassfified_tox.sh', quote = F, col.names = F, row.names = F )
+```
+
+
+
+
+# has unclassified
+
+
+```{r}
+# with unclassfified
+cmd_barplot <- tox_pathway %>% 
+  select(pwid) %>% 
+  mutate(barcmd = str_glue('humann2_barplot  --input ../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_stratified_reordered_with_tox.tsv --focal-feature {pwid} --sort similarity sum metadata  --focal-metadatum Toxicity --last-metadatum Toxicity --scaling pseudolog --dimensions 10 5 -o /Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/species_contribution_barplot_humann2/with_unclassfified/Toxicity/{pwid}_pw.png')) %>% 
+  select(barcmd) 
+ 
+cmd_barplot %>% 
+  write.table('humann2_bar_cmd_tox.sh', quote = F, col.names = F, row.names = F )
 ```
 
 

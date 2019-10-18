@@ -32,7 +32,10 @@ feature <- fns %>%
   bind_rows(.id = 'group') %>% 
   mutate(group = str_replace(group, 'pathway_abundace_pheno__',''))
  
+feature %>% 
+  write_csv('../data/lefse_stats_all_sig_pathway.csv')
    
+
 feature %>% 
   distinct(pathway) %>% 
   write_csv('../data/unique_enriched_pathways.csv')
