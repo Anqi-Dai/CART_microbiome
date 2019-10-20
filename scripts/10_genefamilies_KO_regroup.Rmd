@@ -1,0 +1,40 @@
+---
+title: "Humann2 bar plot for gene family"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+######################################## Bash ########################################
+
+```{bash}
+# needs to download the utility mapping db first
+humann2_databases --download utility_mapping full /Users/daia1/melodyP/data/humann2_res
+```
+
+```{bash}
+# regroup to KEGG Orthogroups (KOs)
+humann2_regroup_table \
+            --input ../data/humann2_res/humann2_genefamilies.tsv  \
+            --groups uniref90_ko  \
+            --output ../data/humann2_res/humann2_genefamilies_KO_regroup.tsv
+```
+
+```{bash}
+# renorm to relab
+humann2_renorm_table  --input ../data/humann2_res/humann2_genefamilies_KO_regroup.tsv -u relab --output ../data/humann2_res/humann2_genefamilies_KO_regroup_relab.tsv
+```
+
+```{bash}
+# split into unstratified and ..
+humann2_split_stratified_table --input ../data/humann2_res/humann2_genefamilies_KO_regroup_relab.tsv  --output ../data/humann2_res/genefamily_split_KO
+```
+
+
+
+
+
+

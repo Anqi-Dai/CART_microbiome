@@ -1,0 +1,65 @@
+---
+title: ""
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(KEGGREST)
+```
+
+## Load the lefse results
+
+```{r}
+# load the lefse res of tox
+# the input : lefse res files
+fns <- list.files('../data/lefse_genefam/', pattern = 'genefam_abundace_pheno__[CR|Toxicity].+res$', full.names = T)
+fns_name <- list.files('../data/lefse_genefam/', pattern = 'genefam_abundace_pheno__[CR|Toxicity].+res$')
+
+# join all of the tables feature together
+feature <- fns %>% 
+  set_names(fns_name) %>% 
+  # when meeting parsing failures, you need to specify all column types.
+  map(~ read_tsv(., col_names = c('genefam','xx','direction','score','pval'),  col_types = 'ccccc') %>% 
+        filter(!is.na(score))) %>% 
+  bind_rows(.id = 'group') %>% 
+  mutate(group = str_replace(group, 'genefam_abundace_pheno__','')) %>% 
+  mutate(group = str_replace(group, '.res$','')) %>% 
+  select(-xx, -pval) %>% 
+  mutate(KOID = str_replace(genefam, '\\.g.+$','')) 
+ 
+# change the "N" direction to be minus score
+# feature <- bind_rows(
+#   feature %>% 
+#     split(.$direction) %>% 
+#     pluck('N') %>% 
+#     mutate(score = -score),
+#   feature %>% 
+#     split(.$direction) %>% 
+#     pluck('Y') 
+# ) %>% 
+#   arrange(group, pathway, score)
+
+# feature %>% 
+#   write_csv('../data/lefse_genefam/with_unmapped_sig_feature.csv')
+
+
+```
+
+## Use KEGGREST pkg to get the actual term
+
+### work on the Toxicity first
+
+```{r}
+tox_df <-  feature %>% 
+  filter(group == 'Toxicity') %>% 
+  split(cut_width(1:nrow(.), 10, boundary=0)) %>% 
+  map(~ pull(.data = ., KOID) %>% 
+        map(~ list(KO_name = keggGet(.)[[1]]$NAME,
+             KO_def = keggGet(.)[[1]]$DEFINITION)) %>% 
+        bind_rows()) %>% 
+  bind_rows()
+  
+```
+
