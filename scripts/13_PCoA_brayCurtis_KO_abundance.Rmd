@@ -4,7 +4,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE)  
 library(tidyverse)
 library(vegan)
 ```
@@ -24,9 +24,44 @@ ko <- read_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_
 
 ko <- bind_cols(ko[,1],ko[,pheno$Sampleid]) 
 all.equal(pheno$Sampleid, colnames(ko)[2:ncol(ko)])
+
+# turn the ko table in to a matrix
+ko_matrix <- ko %>% 
+  column_to_rownames('KO') %>% 
+  as.matrix()
 ```
+
 ```{r}
+pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_unstratified.tsv') %>% 
+  rename(pw = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) 
 
+pw <- bind_cols(pw[,1],pw[,pheno$Sampleid]) 
+all.equal(pheno$Sampleid, colnames(pw)[2:ncol(pw)])
+
+pw_matrix <- pw %>% 
+  column_to_rownames('pw') %>% 
+  as.matrix()
 ```
 
+```{r}
+# PCoA
+pheno_col <- pheno %>% 
+  mutate(tox_col = if_else(Toxicity == 'Y', 'red', 'green '),
+         CR_col = if_else(CR == 'Y', 'red', 'green '))
 
+bc_dist <-  vegdist(t(pw_matrix), "bray")
+pc_bc <- cmdscale(bc_dist, k = 2)
+plot(pc_bc[,1], pc_bc[,2], col = pheno_col$tox_col, main = 'Pathway abundance color by tox')
+plot(pc_bc[,1], pc_bc[,2], col = pheno_col$CR_col, main = 'Pathway abundance color by CR')
+```
+
+```{r}
+# do the PcoA with bray curtis distance  
+bc_dist <-  vegdist(t(ko_matrix), "bray")
+pc_bc <- cmdscale(bc_dist, k = 2)
+plot(pc_bc[,1], pc_bc[,2], col = pheno_col$tox_col, main = 'KO abundance color by tox')
+plot(pc_bc[,1], pc_bc[,2], col = pheno_col$CR_col, main = 'KO abundance color by CR')
+```
+
+It just doesn't separate whether using gene ortholog or pathway abundance.       
