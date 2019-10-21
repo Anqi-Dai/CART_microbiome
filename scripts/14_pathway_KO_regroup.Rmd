@@ -1,0 +1,28 @@
+---
+title: "pathway KO regroup"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+```{bash}
+# regroup to KEGG Orthogroups (KOs)
+humann2_regroup_table \
+            --input ../data/humann2_res/humann2_pathabundance.tsv  \
+            --groups uniref90_pfam  \
+            --output ../data/humann2_res/humann2_pathabundance_pfam_regroup.tsv
+```
+
+```{bash}
+# renorm to relab
+<!-- humann2_renorm_table  --input ../data/humann2_res/humann2_genefamilies_KO_regroup.tsv -u relab --output ../data/humann2_res/humann2_genefamilies_KO_regroup_relab.tsv -->
+```
+
+```{bash}
+# split into unstratified and ..
+<!-- humann2_split_stratified_table --input ../data/humann2_res/humann2_genefamilies_KO_regroup_relab.tsv  --output ../data/humann2_res/genefamily_split_KO -->
+```

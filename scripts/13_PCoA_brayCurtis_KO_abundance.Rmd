@@ -31,6 +31,8 @@ ko_matrix <- ko %>%
   as.matrix()
 ```
 
+## Looking at the whole table
+
 ```{r}
 pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_unstratified.tsv') %>% 
   rename(pw = names(.)[1]) %>% 
@@ -65,3 +67,20 @@ plot(pc_bc[,1], pc_bc[,2], col = pheno_col$CR_col, main = 'KO abundance color by
 ```
 
 It just doesn't separate whether using gene ortholog or pathway abundance.       
+
+## Looking at subset of pathways
+
+```{r}
+vb_matrix <- pw %>% 
+  filter(str_detect(pw, 'folate|pantothenate|cobalamin|biotin')) %>% 
+  column_to_rownames('pw') %>% 
+  as.matrix()
+
+
+bc_dist <-  vegdist(t(vb_matrix), "bray")
+pc_bc <- cmdscale(bc_dist, k = 2)
+plot(pc_bc[,1], pc_bc[,2], col = pheno_col$tox_col, main = 'Pathway abundance color by tox')
+plot(pc_bc[,1], pc_bc[,2], col = pheno_col$CR_col, main = 'Pathway abundance color by CR')
+
+```
+

@@ -33,6 +33,28 @@ humann2_renorm_table  --input ../data/humann2_res/humann2_genefamilies_KO_regrou
 humann2_split_stratified_table --input ../data/humann2_res/humann2_genefamilies_KO_regroup_relab.tsv  --output ../data/humann2_res/genefamily_split_KO
 ```
 
+######################################## R ############################################
+
+```{r} 
+
+# reorder the unstratified table
+genef_KO <- read_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_unstratified.tsv')%>% 
+  rename(KO = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance-RPKs$',''))) 
+  
+
+pheno <- read_csv('../data/current_pheno.csv') %>% 
+  filter(! Sampleid %in% c("1725E", "2222A" ,"2245A"))
+
+genef_KO <- bind_cols(genef_KO[,1],genef_KO[,pheno$Sampleid]) 
+all.equal(pheno$Sampleid, colnames(genef_KO)[2:ncol(genef_KO)])
+  
+```
+```{r}
+# look at the relab abundance of the pathways related to pantothenate for example
+patha <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_unstratified.tsv') %>% 
+  # choose the pantothenate and fol
+```
 
 
 
