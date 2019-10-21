@@ -1,0 +1,32 @@
+---
+title: "PCoA with bray curtis on KO abundance"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(vegan)
+```
+
+Attempt on making the figure 7 A and B of paper https://www.nature.com/articles/srep34826
+Making PCoA plot with Bray-Curtis distance on the KO abundace matrix
+
+```{r}
+# using the unstratified cts first
+pheno <- read_csv('../data/current_pheno.csv') %>% 
+  filter(! Sampleid %in% c("1725E", "2222A" ,"2245A"))
+
+ko <- read_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_unstratified.tsv') %>% 
+  rename(KO = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance-RPKs$',''))) 
+  
+
+ko <- bind_cols(ko[,1],ko[,pheno$Sampleid]) 
+all.equal(pheno$Sampleid, colnames(ko)[2:ncol(ko)])
+```
+```{r}
+
+```
+
+
