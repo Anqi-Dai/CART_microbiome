@@ -6,6 +6,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(ggpubr)
 ```
 
 ######################################## Bash ########################################
@@ -51,12 +52,44 @@ all.equal(pheno$Sampleid, colnames(genef_KO)[2:ncol(genef_KO)])
   
 ```
 ```{r}
-# look at the relab abundance of the pathways related to pantothenate for example
-patha <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_unstratified.tsv') %>% 
-  # choose the pantothenate and fol
+patha
 ```
 
 
+```{r}
+# look at the relab abundance of the pathways related to pantothenate for example
+patha <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_unstratified.tsv') %>% 
+  rename(pw = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  filter(str_detect(pw, 'folate|pantothenate|cobalamin|biotin'))
+
+# gather and combine with pheno info
+patha <- patha %>% 
+  gather(key = 'Sample', value = 'relab', names(.)[2]: names(.)[ncol(.)]) %>% 
+  left_join(pheno %>% 
+              select(Sample = Sampleid, CR, Toxicity), by = 'Sample')
+
+# plot
+
+stat.test <- compare_means(
+  relab ~ pw, data = patha, group.by = "Toxicity",
+  method = "wilcox.test", ref.group = 'PWY-2201: folate transformations I'
+)
 
 
+patha %>% 
+  mutate(pw = str_replace(pw, '.+:','')) %>% 
+  ggboxplot(x = 'pw', y = 'relab', color = 'Toxicity', palette  = 'lancet') +
+  theme(axis.text.x = element_text(angle = 15, hjust = 1)) + 
+  #stat_compare_means(aes(group = Toxicity), label = "p.signif") +
+  labs(x = 'Vitamin B related pathways',
+       y = 'relative abundance',
+       title = 'Relative abundance in different response to Toxicity in vb related pathways') +
+  ggsave('../figs/Relative abundance in different response to Toxicity in vb related pathways.jpg', width = 10, height = 7, dpi = 300)
+  
+```
+
+```{r}
+load('../data/kegg_lookup_tables.RData')
+```
 
