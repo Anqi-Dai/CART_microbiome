@@ -15,7 +15,7 @@ library(RVenn)
 ```{r}
 # the newest pheno table from M
 # this sheet have nice sampleids for the samples, and also this is the table has all of the info
-phe_M <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 10172019.xlsx',
+phe_M <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 10222019.xlsx',
                     sheet = 5)
 ```
 
@@ -27,7 +27,6 @@ phe_M_clean <- phe_M %>%
     str_replace(., ':','_'))) %>% 
   # select the columns that may be relavant
   select(Sampleid = Baseline_Sample_ID, 
-         Censor_YN,
          Censor_reason,
          CR, 
          ORR, 
@@ -35,9 +34,7 @@ phe_M_clean <- phe_M %>%
          Disease_Status_CAR = Key__Patient_Disease_Status_at_CAR, 
          Disease_Class, 
          CAR_Group) %>% 
-  filter(is.na(Censor_reason)) %>% 
-  # remove this one record that doesn't seem to be a valid record at all
-  filter(!is.na(CR))
+  filter(is.na(Censor_reason)) 
 
 nrow(phe_M_clean)
 
@@ -58,8 +55,8 @@ have_sg <- read_csv('../data/baselinesforAngel10032019.csv') %>%
   filter(shotgun_YN == 'yes') %>% 
   # removig 1943A cuz its low quality
   filter(sample_id != '1943A') %>% 
-  # THERE ARE THREE THAT ARE CURRENTLY BEING SEQUENCED, WE DON'T HAVE YET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  filter(!sample_id %in% c('161','171','173'))
+  # 171 is back, removing the the other two that doesn't make to the final valid sample
+  filter(!sample_id %in% c('161','173'))
 
 nrow(have_sg)
 
@@ -76,6 +73,7 @@ two <- Venn(list(
  
 ggvenn(two)      
 ```
+
 ```{r}
 # write out the overlap sampleid cuz that's gonna be the sample_names in use on the cluster for normalization
 intersect(have_sg$sample_id, phe_M_clean$Sampleid) %>% 

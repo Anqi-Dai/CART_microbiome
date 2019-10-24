@@ -6,6 +6,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(grid)
+library(cowplot)
+library(ggpubr)
 ```
 
 Replot the lefse plots with ggplot2 (with each class + subclass combi)
@@ -56,19 +59,58 @@ Each combi per figure
 
 ```{r}
 feature %>% 
+  filter(str_detect(group, pattern = 'Disease_Class$')) %>% 
   split(.$group) %>% 
   map(~  ggplot(data = ., aes(x = reorder(pathway, score), y = score, fill = direction)) +
-  geom_bar(stat='identity') +
-  coord_flip() +
-  scale_color_manual(values = c('#00468B', '#EC0000'))  +
-  scale_fill_manual(values = c('#00468B', '#EC0000')) +
-  theme_minimal() +
-  theme(axis.title.y  = element_blank(), 
-        legend.position="bottom") +
-  labs(title = str_glue('Response to class (with subclass): {.$group}') ,
-       y = 'Score')+ 
-  ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to class (with subclass): {.$group}.pdf'), device = 'pdf', width = 15, height = 6, dpi = 300))
+            geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#00468B', '#EC0000'))  +
+            scale_fill_manual(values = c('#00468B', '#EC0000')) +
+            theme_minimal() +
+            theme(axis.title.y  = element_blank(), 
+                  legend.position="bottom") +
+            labs(title = str_glue('Response to class') ,
+                 y = 'Score')+ 
+            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to class {.$group}.pdf'), device = 'pdf', width = 15, dpi = 300))
  
 ```
+
+```{r}
+CR <- feature %>% 
+  filter(str_detect(group, pattern = 'Disease_Class$')) %>% 
+  filter(group == 'CR__Disease_Class') %>% 
+  ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
+            geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#00468B', '#EC0000'))  +
+            scale_fill_manual(values = c('#00468B', '#EC0000')) +
+            theme_minimal() +
+            theme(axis.title.y  = element_blank(), 
+                  legend.position="bottom") +
+            labs(title = str_glue('Response to Complete Response') ,
+                 y = 'Score')
+
+tox <- feature %>% 
+  filter(str_detect(group, pattern = 'Disease_Class$')) %>% 
+  filter(group == 'Toxicity__Disease_Class') %>% 
+  ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
+            geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#00468B', '#EC0000'))  +
+            scale_fill_manual(values = c('#00468B', '#EC0000')) +
+            theme_minimal() +
+            theme(axis.title.y  = element_blank(), 
+                  legend.position="bottom") +
+            labs(title = str_glue('Response to Toxicity') ,
+                 y = 'Score')
+
+g <- plot_grid(CR, tox,
+          nrow = 2, 
+          align = 'hv',
+          labels = 'AUTO',
+          axis = 'b')  +
+  ggsave('../figs/dtes.jpg', width = 13, height = 12, dpi = 300)
+```
+
 
 

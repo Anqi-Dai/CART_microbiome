@@ -21,6 +21,8 @@ The stacked bar plot like humann2 did, but do it myself.
 
 ```{r}
 # pheno table 
+valid_s <- read_table('../data/input_for_cluster_sampleid/valid_sample_names.txt', col_names = F)
+
 pheno <- read_csv('../data/cleaned_pheno/current_pheno.csv')%>% 
   filter(Sampleid %in% valid_s$X1) %>% 
   select(-Censor_YN, -Censor_reason ) 
