@@ -88,6 +88,16 @@ setdiff(pheno_col$Sampleid, final_sample_id)
 ```
 
 ```{r}
+# the final pheno table which has 33 rows
+final_pheno <- phe_M_clean %>% 
+  filter(Sampleid %in% have_sg$sample_id)
+
+final_pheno %>% 
+  write_csv('../data/cleaned_pheno/final_pheno.csv')
+```
+
+
+```{r}
 # write out the overlap sampleid cuz that's gonna be the sample_names in use on the cluster for normalization
 intersect(have_sg$sample_id, phe_M_clean$Sampleid) %>%  
   write.table('../data/input_for_cluster_sampleid/valid_sample_names.txt', col.names = F, row.names = F, quote = F)

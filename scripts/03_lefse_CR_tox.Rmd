@@ -13,17 +13,12 @@ library(tidyverse)
 # Run unstratified pathway abundance of Melody's project thru lefse
 * CR & Toxicity
 
-Now we have 3 subclasses and together with the 2 classes of 35 that gonna make a total combination of 6
 
 ## Sorting out the pheno table for the valid samples
 
 ```{r}
-# loading the table with the valid sampleids
-valid_s <- read_table('../data/input_for_cluster_sampleid/valid_sample_names.txt', col_names = F)
-
-pheno <- read_csv('../data/cleaned_pheno/current_pheno.csv') %>% 
-  filter(Sampleid %in% valid_s$X1) %>% 
-  select(-Censor_YN, -Censor_reason ) 
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  select(-CAR_Group, -Censor_reason ) 
 ```
 
 ## Creating the class+subclass combi
@@ -31,7 +26,7 @@ pheno <- read_csv('../data/cleaned_pheno/current_pheno.csv') %>%
 ```{r}
 # get different combination of the classes
 classes <- c('CR', 'Toxicity')
-subclass <- c('Disease_Status_CAR','Disease_Class','CAR_Group')
+subclass <- c('Disease_Class')
 
 combi <- expand.grid(classes = classes,subclass = subclass)
 
@@ -74,13 +69,13 @@ relab_or %>%
 
 ```{r}
 # create the commad in df with str_glue and then output to a bash script
-pheno_combi <- data_frame(pheno_file = list.files('../data/lefse_input', pattern = '.txt$', full.names = T)) %>% 
+pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = '.txt$', full.names = T)) %>% 
   mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
 
 pheno_combi %>% 
   mutate(cat_cmd = str_glue('cat {pheno_file} ../data/pheno_aligned_relab_table/humann2_pathabundance_relab_unstratified.tsv > ../data/lefse_input/pathway_abundace_{combi}tsv')) %>% 
   select(cat_cmd) %>% 
-  write_csv('cat_combi_6.sh', col_names = F)
+  write_csv('cat_combi_CT.sh', col_names = F)
 ```
 
 
@@ -91,7 +86,7 @@ pheno_combi %>%
          fmt_input = str_replace(input_tsv, 'tsv','in'),
          fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -s 2 -u 3 -o 1000000')) %>% 
   select(fmt_cmd) %>% 
-  write_csv('format_input_6.sh', col_names = F)
+  write_csv('format_input_CT.sh', col_names = F)
 ```
 
 
@@ -102,7 +97,7 @@ pheno_combi %>%
          lefse_res = str_replace(fmt_input, 'in$','res'),
          run_cmd = str_glue('run_lefse.py {fmt_input} {lefse_res}')) %>% 
   select(run_cmd) %>% 
-  write_csv('run_lefse.sh', col_names = F)
+  write_csv('run_lefse_CT.sh', col_names = F)
 ```
 
 
@@ -113,7 +108,7 @@ pheno_combi %>%
          fea_png = str_glue('../figs/pathway_abundace_{combi}png'),
          cmd = str_glue('plot_res.py {lefse_res}  {fea_png} --feature_font_size 4 --width 10 --dpi 300 --title {combi}')) %>% 
   select(cmd) %>% 
-  write_csv('plotting_de_feature.sh', col_names = F)
+  write_csv('plotting_de_feature_CT.sh', col_names = F)
 ```
 
 ####################################### below is command line ##########################################
@@ -122,20 +117,10 @@ pheno_combi %>%
 
 ```{bash}
 # this is the bash script to do the actual concatenation 
-bash cat_combi_6.sh
-```
-
-```{bash}
-# run in the cmd line THIS HAS TO BE DONE IN THE CMD SINCE RSTUDIO DOES NOT RECOGNIZE THE LEFSE SCRIPT
-bash format_input_6.sh
-```
-
-```{bash}
-bash run_lefse.sh
-```
-
-```{bash}
-bash plotting_de_feature.sh
+bash cat_combi_CT.sh
+bash format_input_CT.sh
+bash run_lefse_CT.sh
+bash plotting_de_feature_CT.sh
 ```
 
 
