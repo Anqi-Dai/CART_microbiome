@@ -88,7 +88,9 @@ CR <- feature %>%
             theme(axis.title.y  = element_blank(), 
                   legend.position="bottom") +
             labs(title = str_glue('Response to Complete Response') ,
-                 y = 'Score')
+                 y = 'Score')+ 
+            ylim(-4,4) +
+            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to CR.jpg'),  width = 12, dpi = 300, )
 
 tox <- feature %>% 
   filter(str_detect(group, pattern = 'Disease_Class$')) %>% 
@@ -102,14 +104,11 @@ tox <- feature %>%
             theme(axis.title.y  = element_blank(), 
                   legend.position="bottom") +
             labs(title = str_glue('Response to Toxicity') ,
-                 y = 'Score')
+                 y = 'Score')+ 
+            ylim(-4,4) +
+            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to tox.jpg'),  width = 12, dpi = 300, height = 3.5)
 
-g <- plot_grid(CR, tox,
-          nrow = 2, 
-          align = 'hv',
-          labels = 'AUTO',
-          axis = 'b')  +
-  ggsave('../figs/dtes.jpg', width = 13, height = 12, dpi = 300)
+
 ```
 
 
