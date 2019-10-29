@@ -77,29 +77,27 @@ feature %>%
 
 ```{r}
 CR <- feature %>% 
-  filter(str_detect(group, pattern = 'Disease_Class$')) %>% 
   filter(group == 'CR__Disease_Class') %>% 
   ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
             geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
             coord_flip() +
-            scale_color_manual(values = c('#00468B', '#EC0000'))  +
-            scale_fill_manual(values = c('#00468B', '#EC0000')) +
+            scale_color_manual(values = c('#42B440', '#EC0000'))  +
+            scale_fill_manual(values = c('#42B440', '#EC0000')) +
             theme_minimal() +
             theme(axis.title.y  = element_blank(), 
                   legend.position="bottom") +
             labs(title = str_glue('Response to Complete Response') ,
                  y = 'Score')+ 
             ylim(-4,4) +
-            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to CR.jpg'),  width = 12, dpi = 300, )
+            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to CR.jpg'),  width = 12, dpi = 300 )
 
 tox <- feature %>% 
-  filter(str_detect(group, pattern = 'Disease_Class$')) %>% 
   filter(group == 'Toxicity__Disease_Class') %>% 
   ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
             geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
             coord_flip() +
-            scale_color_manual(values = c('#00468B', '#EC0000'))  +
-            scale_fill_manual(values = c('#00468B', '#EC0000')) +
+            scale_color_manual(values = c('#42B440', '#EC0000'))  +
+            scale_fill_manual(values = c('#42B440', '#EC0000')) +
             theme_minimal() +
             theme(axis.title.y  = element_blank(), 
                   legend.position="bottom") +
