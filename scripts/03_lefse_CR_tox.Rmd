@@ -39,12 +39,12 @@ apply(combi, 1, function(row) {
     write.table(str_glue('../data/lefse_input/pheno__{row[["classes"]]}__{row[["subclass"]]}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
 })
 ```
-  
+   
 ## Sorting the relab abundance table so that sampleid would align  
   
 ```{r}
 # input: relative abundance unstratified for pathway abundance
-relab <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_relab_unstratified.tsv') %>% 
+relab <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
   rename(sampleid = names(.)[1]) %>% 
   rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
   # remove the unmapped and the unintegrated record
@@ -61,7 +61,7 @@ all.equal(colnames(relab_or)[2:ncol(relab_or)], pheno$Sampleid)
 
 # write out the table
 relab_or %>% 
-  write_tsv('../data/pheno_aligned_relab_table/humann2_pathabundance_relab_unstratified.tsv')
+  write_tsv('../data/pheno_aligned_relab_table/humann2_pathabundance_cpm_unstratified.tsv')
 ```
 
 
@@ -73,7 +73,7 @@ pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = '
   mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
 
 pheno_combi %>% 
-  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/pheno_aligned_relab_table/humann2_pathabundance_relab_unstratified.tsv > ../data/lefse_input/pathway_abundace_{combi}tsv')) %>% 
+  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/pheno_aligned_relab_table/humann2_pathabundance_cpm_unstratified.tsv > ../data/lefse_input/pathway_abundace_{combi}tsv')) %>% 
   select(cat_cmd) %>% 
   write_csv('cat_combi_CT.sh', col_names = F)
 ```
