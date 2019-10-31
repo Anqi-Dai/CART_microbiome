@@ -1,12 +1,26 @@
 ---
-title: "RF to find the top important features"
-output: html_document
+title: "Random Forest to find the top important features"
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 library(randomForest)
+library(ggpubr)
+library(tidyverse)
+library(kableExtra)
 ```
+
+## Response to Toxicity
+
+### Glimpse at pheno table
 
 ```{r}
 # the species table from metaphlan2
@@ -21,15 +35,12 @@ s_tb_sum <- s_tb %>%
 
 # load the pheno
 pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
-  select(-CAR_Group, -Censor_reason ) 
+  select(-CAR_Group, -Censor_reason ) %>% 
+  mutate_at(vars(str_which(names(.),'Sampleid', negate = T)), factor)
 
 # to rearrange the cts table 
 s_tb <- bind_cols(s_tb[,1],s_tb[,pheno$Sampleid]) 
 
-all.equal(colnames(s_tb)[2:ncol(s_tb)], pheno$Sampleid)
-```
-
-```{r}
 # to put the feature table in the sample as rowname format to do the ML 
 s_tb_rf <- s_tb %>% 
   column_to_rownames('ID') %>% 
@@ -39,47 +50,112 @@ s_tb_rf <- s_tb %>%
 # check the sample name really match
 all.equal(rownames(s_tb_rf), pheno$Sampleid)
 
+# pheno %>% 
+#   kable(caption = 'Phenotype info of the final 33 baseline sample patients') %>% 
+#   kable_styling(full_width = F)
+
+pheno  %>% 
+  summary 
+```
+
+### Use only the toxicity as the response variable
+
+```{r}
 tox_RF <- randomForest(s_tb_rf, factor(pheno$Toxicity), importance = T)
 
-impor_feature <- importance(tox_RF) %>% 
+impor_feature <- importance(tox_RF, type=1) %>% 
   as.data.frame() %>% 
   rownames_to_column(var = 'species') %>% 
   arrange(MeanDecreaseAccuracy)
+
+
+# plot the err rate change
+tox_RF  %>% 
+  pluck('err.rate') %>% 
+  as.data.frame() %>% 
+  mutate(ntree = seq(1, nrow(.))) %>% 
+  gather(key = 'type', value = 'ERR', OOB:Y) %>% 
+  ggline(x = 'ntree', y = 'ERR', color = 'type', palette = 'lancet') +
+  labs(x = 'Number of trees', 
+       y = 'Error rate')
+
+tox_RF
 ```
+
+There are much for Y patients than N. If all assigning to Y it will probably like this.
+
+### Use all of the variables in the pheno table to do RF
+
+```{r} 
+# bind the pheno with the transposed cts matrix
+combined <- cbind(s_tb_rf, pheno %>% 
+                    select(-Sampleid)) 
+
+combined_tox_RF <- randomForest(formula = Toxicity ~ ., data = combined,  importance = T )  
+
+combined_tox_RF  %>% 
+  pluck('err.rate') %>% 
+  as.data.frame() %>% 
+  mutate(ntree = seq(1, nrow(.))) %>% 
+  gather(key = 'type', value = 'ERR', OOB:Y) %>% 
+  ggline(x = 'ntree', y = 'ERR', color = 'type', palette = 'lancet') +
+  labs(x = 'Number of trees', 
+       y = 'Error rate')
+
+combined_tox_RF
+```
+
+
+### Removing some not expressive features
+
+```{r}
+# check the dist of the species relab sum of the table
+s_sum <- s_tb_rf %>% 
+  apply(., 2, sum)
+
+data_frame(species = names(s_sum),
+           relab_sum = s_sum) %>% 
+  gghistogram(x = 'relab_sum', bins = 50)
+
+# remove the species that have less than 1(%) abundance 
+length(s_sum[s_sum > 1]) 
+
+
+combined_fil <- cbind(s_tb_rf[,names(s_sum[s_sum > 1])], pheno %>% 
+                    select(-Sampleid)) 
+
+
+combined_tox_RF_fil <- randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T )  
+
+combined_tox_RF_fil  %>% 
+  pluck('err.rate') %>% 
+  as.data.frame() %>% 
+  mutate(ntree = seq(1, nrow(.))) %>% 
+  gather(key = 'type', value = 'ERR', OOB:Y) %>% 
+  ggline(x = 'ntree', y = 'ERR', color = 'type', palette = 'lancet') +
+  labs(x = 'Number of trees', 
+       y = 'Error rate')
+
+combined_tox_RF_fil 
+```
+
+No improvements at all.
+
+### See the important features(species)
+
+```{r}
+top_feature <- importance(combined_tox_RF_fil, type=1, scale = F) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = 'species') %>% 
+  arrange(desc(MeanDecreaseAccuracy))
+
+top_feature
+```
+
 
 Although Clostridium innocuum are often present and harmless in healthy people, they have been isolated in various infections and predominantly in patients that are immunocompromised as an opportunistic bacteria.
 
-```{r}
-CR_RF <- randomForest(s_tb_rf, factor(pheno$CR), importance = T)
 
-impor_feature <- importance(CR_RF) %>% 
-  as.data.frame() %>% 
-  rownames_to_column(var = 'species') %>% 
-  arrange(MeanDecreaseAccuracy)
-```
 
-```{r}
-# the pathway abundance table
-pabun <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
-  rename(pathway = names(.)[1]) %>% 
-  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
-  # remove the unmapped and the unintegrated record
-  filter(!pathway %in% c('UNMAPPED','UNINTEGRATED'))
 
-pabun <- bind_cols(pabun[,1],pabun[,pheno$Sampleid]) 
-
-pabun_rf <- pabun %>% 
-  column_to_rownames('pathway') %>% 
-  as.matrix() %>% 
-  t
-
-all.equal(rownames(pabun_rf), pheno$Sampleid)
-
-tox_RF_PW <- randomForest(pabun_rf, factor(pheno$Toxicity), importance = T)
-
-impor_pw <- importance(tox_RF_PW) %>% 
-  as.data.frame() %>% 
-  rownames_to_column(var = 'pathway') %>% 
-  arrange(MeanDecreaseAccuracy)
-```
 

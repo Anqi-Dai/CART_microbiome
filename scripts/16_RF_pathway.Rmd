@@ -1,0 +1,43 @@
+---
+title: "RF pathway abundance"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(randomForest)
+library(ggpubr)
+library(tidyverse)
+library(kableExtra)
+```
+
+```{r}
+# load the pheno
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  select(-CAR_Group, -Censor_reason ) %>% 
+  mutate_at(vars(str_which(names(.),'Sampleid', negate = T)), factor)
+
+
+# the pathway abundance table
+pabun <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
+  rename(pathway = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  # remove the unmapped and the unintegrated record
+  filter(!pathway %in% c('UNMAPPED','UNINTEGRATED'))
+
+pabun <- bind_cols(pabun[,1],pabun[,pheno$Sampleid]) 
+
+pabun_rf <- pabun %>% 
+  column_to_rownames('pathway') %>% 
+  as.matrix() %>% 
+  t
+
+all.equal(rownames(pabun_rf), pheno$Sampleid)
+
+tox_RF_PW <- randomForest(pabun_rf, factor(pheno$Toxicity), importance = T)
+
+impor_pw <- importance(tox_RF_PW, type=1) %>% 
+  as.data.frame() %>% 
+  rownames_to_column(var = 'pathway') %>% 
+  arrange(MeanDecreaseAccuracy) 
+```
