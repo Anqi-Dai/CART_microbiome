@@ -7,7 +7,7 @@ output:
     toc: true
     toc_float: true
     toc_depth: 3
-    code_folding: hide
+
 ---
 
 ```{r setup, include=FALSE}
@@ -58,7 +58,7 @@ pheno  %>%
   summary 
 ```
 
-### Use only the toxicity as the response variable
+### Use all features as predictors
 
 ```{r}
 tox_RF <- randomForest(s_tb_rf, factor(pheno$Toxicity), importance = T)
@@ -84,7 +84,7 @@ tox_RF
 
 There are much for Y patients than N. If all assigning to Y it will probably like this.
 
-### Use all of the variables in the pheno table to do RF
+### Use all features + all pheno var as predictors
 
 ```{r} 
 # bind the pheno with the transposed cts matrix
@@ -106,7 +106,7 @@ combined_tox_RF
 ```
 
 
-### Removing some not expressive features
+### Use more abundant features(species abundance > 1%) + all pheno var as predictors
 
 ```{r}
 # check the dist of the species relab sum of the table
@@ -139,23 +139,38 @@ combined_tox_RF_fil  %>%
 combined_tox_RF_fil 
 ```
 
-No improvements at all.
+No improvements at all. I think because the relatively small sample size and uneven distribution of the groups.
 
 ### See the important features(species)
 
-```{r}
-top_feature <- importance(combined_tox_RF_fil, type=1, scale = F) %>% 
-  as.data.frame() %>% 
-  rownames_to_column(var = 'species') %>% 
-  arrange(desc(MeanDecreaseAccuracy))
+Using the third table predictors.
 
-top_feature
+```{r}
+# repeat the RF M = 100 times
+# pull top 10 features
+N <- 10
+M <- 100 
+pull_top_features <- function(){
+  importance(randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T ) , type=1, scale = F) %>% 
+    as.data.frame() %>% 
+    rownames_to_column(var = 'species') %>% 
+    arrange(desc(MeanDecreaseAccuracy)) %>% 
+    top_n(N) %>% 
+    pull(species)
+}
+
+res <- replicate(M, pull_top_features())
+
+stable_top_fea <- table(res) %>% 
+  as.data.frame() %>% 
+  rename(species = names(.)[1]) %>% 
+  arrange(desc(Freq))
+
+stable_top_fea %>% 
+  kable(caption = 'Frequency of features shown as top 10 in 100 random forest runs') %>% 
+  kable_styling(full_width = F, position = 'left')
+
 ```
 
-
-Although Clostridium innocuum are often present and harmless in healthy people, they have been isolated in various infections and predominantly in patients that are immunocompromised as an opportunistic bacteria.
-
-
-
-
+What's interesting is this species *Ruminococcus gnavus*. [This recent paper](https://www.pnas.org/content/116/26/12672) points out that *Ruminococcus gnavus* produces a polysaccharide molecule that induces the production of inflammatory cytokines, which could be hypothesized to cause toxicity too.
 
