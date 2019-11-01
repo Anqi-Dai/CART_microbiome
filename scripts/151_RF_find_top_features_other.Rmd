@@ -26,7 +26,7 @@ library(arrangements)
 ```{r}
 # the species table from metaphlan2
 # the species abundance here are actually in percent
-s_tb <- read_tsv('../data/metaphlan2_result/merged_abundance_table_species.txt') %>% 
+s_tb <- read_tsv('../data/metaphlan2_result/merged_abundance_table_phylum.txt') %>% 
   rename_all(funs(str_replace(., '_profile$','')))
 
 s_tb_sum <- s_tb %>% 
@@ -138,7 +138,7 @@ combined_tox_RF
 ```
 
 
-### Use more abundant features(species abundance > 1%) + uncorrelated pheno var as predictors
+### Use more abundant features(phylum abundance > 1%) + uncorrelated pheno var as predictors
 
 ```{r}
 # check the dist of the species relab sum of the table
@@ -173,46 +173,17 @@ combined_tox_RF_fil
 
 No improvements at all. I think because the relatively small sample size and the signal itself is weak. There's no guarantee that there is association between microbiome and the outcome to begin with. 
 
-### Use top N fraction features + uncorrelated pheno var as predictors
 
 
-```{r}
-# to use the top N percent features
 
-# to test on different threshold of selecting most abundant species
-sum_thre <- seq(0.5, 1, 0.05)
-tree_num <- 1000
-
-res <- sum_thre %>% 
-  set_names(sum_thre) %>% 
-  map(function(thre) {
-    s_sum_top <- quantile(s_sum, thre)
-    combined_fil <- cbind(s_tb_rf[,names(s_sum[s_sum > s_sum_top])], pheno %>% 
-                    select(Toxicity, ORR, Disease_Status_CAR)) 
-    
-    tibble(
-      num_fea = length(s_sum[s_sum > s_sum_top]) + 2,
-      OOB_err_rate = randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T , ntree = tree_num )[['err.rate']][tree_num, 1]
-      
-    ) 
-  }) %>% 
-  bind_rows(.id = 'thre')
-
-
-res %>% 
-  kable(caption = 'Top N fraction features and the OOB error rate') %>% 
-  kable_styling(full_width = F, position = 'left')
-```
-
-
-### See the important features(species)
+### See the important features(phylum)
 
 Using the table with features abundance > 1% and the two uncorrelated vars. 
 
 ```{r}
 # repeat the RF M = 100 times
 # pull top 10 features
-N <- 10 
+N <- 3 
 M <- 100 
 pull_top_features <- function(){
   importance(randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T ) , type=1, scale = F) %>% 
@@ -231,12 +202,9 @@ stable_top_fea <- table(res) %>%
   arrange(desc(Freq))
 
 stable_top_fea %>% 
-  kable(caption = 'Frequency of features shown as top 10 in 100 random forest runs') %>% 
+  kable(caption = 'Frequency of features shown as top 3 in 100 random forest runs') %>% 
   kable_styling(full_width = F, position = 'left')
 
 ```
 
 
-What's interesting is this species *Ruminococcus gnavus*. [This recent paper](https://www.pnas.org/content/116/26/12672) points out that *Ruminococcus gnavus* produces a polysaccharide molecule that induces the production of inflammatory cytokines.
-
-And [this paper](https://www.ncbi.nlm.nih.gov/pubmed/29330424) mentions that "*Faecalibacterium prausnitzii* decrease and *Ruminococcus gnavus* increase were the essential characteristics in CHF patients' gut microbiota".

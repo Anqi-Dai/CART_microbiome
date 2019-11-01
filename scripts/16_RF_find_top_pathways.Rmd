@@ -26,13 +26,15 @@ library(arrangements)
 ```{r}
 # the species table from metaphlan2
 # the species abundance here are actually in percent
-s_tb <- read_tsv('../data/metaphlan2_result/merged_abundance_table_species.txt') %>% 
-  rename_all(funs(str_replace(., '_profile$','')))
-
-s_tb_sum <- s_tb %>% 
-  column_to_rownames('ID') %>% 
-  as.matrix() %>% 
-  apply(., 2, sum)
+s_tb <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
+  rename(pathway = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  # remove the unmapped and the unintegrated record
+  filter(!pathway %in% c('UNMAPPED','UNINTEGRATED')) %>% 
+  mutate(pathway = str_extract(pathway, '^.+:')) %>% 
+  mutate(pathway = str_replace_all(pathway, ':','')) %>% 
+  mutate(pathway = str_replace_all(pathway, '-','_'))%>% 
+  mutate(pathway = str_replace_all(pathway, '\\+','_'))
 
 # load the pheno
 pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
@@ -44,7 +46,7 @@ s_tb <- bind_cols(s_tb[,1],s_tb[,pheno$Sampleid])
 
 # to put the feature table in the sample as rowname format to do the ML 
 s_tb_rf <- s_tb %>% 
-  column_to_rownames('ID') %>% 
+  column_to_rownames('pathway') %>% 
   as.matrix() %>% 
   t
 
@@ -92,11 +94,6 @@ phe_cor %>%
 
 ```{r}
 tox_RF <- randomForest(s_tb_rf, factor(pheno$Toxicity), importance = T)
-
-impor_feature <- importance(tox_RF, type=1) %>% 
-  as.data.frame() %>% 
-  rownames_to_column(var = 'species') %>% 
-  arrange(MeanDecreaseAccuracy)
 
 
 # plot the err rate change

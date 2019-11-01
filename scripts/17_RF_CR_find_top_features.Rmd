@@ -7,9 +7,9 @@ output:
     toc: true
     toc_float: true
     toc_depth: 3
-
+    code_folding: hide
 ---
-
+ 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 library(randomForest)
@@ -17,7 +17,6 @@ library(ggpubr)
 library(tidyverse)
 library(kableExtra)
 library(arrangements)
-library(caret)
 ```
 
 ## Response to CR
@@ -65,12 +64,6 @@ pheno  %>%
 ```{r}
 tox_RF <- randomForest(s_tb_rf, factor(pheno$CR), importance = T)
 
-impor_feature <- importance(tox_RF, type=1) %>% 
-  as.data.frame() %>% 
-  rownames_to_column(var = 'species') %>% 
-  arrange(MeanDecreaseAccuracy)
-
-
 # plot the err rate change
 tox_RF  %>% 
   pluck('err.rate') %>% 
@@ -84,14 +77,15 @@ tox_RF  %>%
 tox_RF
 ```
 
-There are much for Y patients than N. If all assigning to Y it will probably like this.
+ 
+### Use all features + uncorrelated pheno var as predictors
 
-### Use all features + all pheno var as predictors
+uncorrelated pheno var: Disease_Status_CAR for CR
 
 ```{r} 
 # bind the pheno with the transposed cts matrix
 combined <- cbind(s_tb_rf, pheno %>% 
-                    select(-Sampleid)) 
+                    select(Disease_Status_CAR, CR)) 
 
 combined_tox_RF <- randomForest(formula = CR ~ ., data = combined,  importance = T )  
 
@@ -107,8 +101,8 @@ combined_tox_RF  %>%
 combined_tox_RF
 ```
 
-
-### Use more abundant features(species abundance > 1%) + all pheno var as predictors
+ 
+### Use more abundant features(species abundance > 1%) + uncorrelated pheno var as predictors
 
 ```{r}
 # check the dist of the species relab sum of the table
@@ -124,7 +118,7 @@ length(s_sum[s_sum > 1])
 
 
 combined_fil <- cbind(s_tb_rf[,names(s_sum[s_sum > 1])], pheno %>% 
-                    select(-Sampleid)) 
+                    select(Disease_Status_CAR, CR)) 
 
 
 combined_tox_RF_fil <- randomForest(formula = CR ~ ., data = combined_fil,  importance = T , ntree = 1000 )  
@@ -141,8 +135,7 @@ combined_tox_RF_fil  %>%
 combined_tox_RF_fil
 ```
 
-No improvements at all. I think because the relatively small sample size and uneven distribution of the groups.
-
+### Use top N fraction features + uncorrelated pheno var as predictors
 
 ```{r}
 # to use the top N percent features
@@ -156,7 +149,7 @@ res <- sum_thre %>%
   map(function(thre) {
     s_sum_top <- quantile(s_sum, thre)
     combined_fil <- cbind(s_tb_rf[,names(s_sum[s_sum > s_sum_top])], pheno %>% 
-                    select(-Sampleid)) 
+                    select(Disease_Status_CAR, CR)) 
     
     tibble(
       num_fea = length(s_sum[s_sum > s_sum_top]) ,
@@ -165,9 +158,14 @@ res <- sum_thre %>%
     ) 
   }) %>% 
   bind_rows(.id = 'thre')
+
+
+res %>% 
+  kable(caption = 'Top N fraction features and the OOB error rate') %>% 
+  kable_styling(full_width = F, position = 'left')
 ```
 
-Interesting, using no feature info actually has smaller OOB error rate.
+
 
 ```{r}
 # try different combination of pheno to predict. (doesn't seem they are correlated right?)
@@ -223,9 +221,7 @@ chi2$p.value # reject the null hypothesis of independence
 ```
 
 
-
-
-### See the important features(species)
+### See the important features (species)
 
 Using the third table predictors.
 
@@ -235,7 +231,7 @@ Using the third table predictors.
 N <- 10
 M <- 100 
 pull_top_features <- function(){
-  importance(randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T ) , type=1, scale = F) %>% 
+  importance(randomForest(formula = CR ~ ., data = combined_fil,  importance = T ) , type=1, scale = F) %>% 
     as.data.frame() %>% 
     rownames_to_column(var = 'species') %>% 
     arrange(desc(MeanDecreaseAccuracy)) %>% 
@@ -255,6 +251,4 @@ stable_top_fea %>%
   kable_styling(full_width = F, position = 'left')
 
 ```
-
-What's interesting is this species *Ruminococcus gnavus*. [This recent paper](https://www.pnas.org/content/116/26/12672) points out that *Ruminococcus gnavus* produces a polysaccharide molecule that induces the production of inflammatory cytokines, which could be hypothesized to cause toxicity too.
 
