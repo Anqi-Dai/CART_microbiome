@@ -6,8 +6,8 @@ output:
   html_document:
     toc: true
     toc_float: true
-    toc_depth: 3
-
+    toc_depth: 3 
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -16,6 +16,7 @@ library(randomForest)
 library(ggpubr)
 library(tidyverse)
 library(kableExtra)
+library(arrangements)
 ```
 
 ## Response to Toxicity
@@ -58,6 +59,35 @@ pheno  %>%
   summary 
 ```
 
+```{r}
+# check whether the pheno vars are correlated (in pairs)
+all_var <- names(pheno)
+combi <- combinations(all_var[all_var != 'Sampleid'], 2) %>% 
+  as.data.frame(stringsAsFactors = F)
+
+phe_cor <- apply(combi, 1, function(Row) {
+  phe_fil = pheno %>% 
+    select(Row[['V1']], Row[['V2']]) %>% 
+    table()
+  
+  chisq.test(phe_fil)$p.value
+}) %>% 
+  as.data.frame() %>% 
+  bind_cols(combi) %>% 
+  mutate(phe_var = str_glue('{V1}__{V2}')) %>% 
+  select(-V1, -V2) %>% 
+  rename(corrected_pval = names(.)[1]) %>% 
+  arrange(corrected_pval) %>% 
+  mutate(CORR = if_else(corrected_pval < 0.1, 'Yes', 'No'))
+
+
+phe_cor %>% 
+  kable(caption = 'Test on independence between two of the pheno vars') %>% 
+  kable_styling(full_width = F, position = 'left')
+```
+
+
+
 ### Use all features as predictors
 
 ```{r}
@@ -82,14 +112,16 @@ tox_RF  %>%
 tox_RF
 ```
 
-There are much for Y patients than N. If all assigning to Y it will probably like this.
+Basically assigning everything to Y. 
 
-### Use all features + all pheno var as predictors
+### Use all features + uncorrelated pheno var as predictors
+
+Uncorrelated pheno var: ORR, Disease_Status_CAR for Toxicity
 
 ```{r} 
 # bind the pheno with the transposed cts matrix
 combined <- cbind(s_tb_rf, pheno %>% 
-                    select(-Sampleid)) 
+                    select(Toxicity, ORR, Disease_Status_CAR)) 
 
 combined_tox_RF <- randomForest(formula = Toxicity ~ ., data = combined,  importance = T )  
 
@@ -106,7 +138,7 @@ combined_tox_RF
 ```
 
 
-### Use more abundant features(species abundance > 1%) + all pheno var as predictors
+### Use more abundant features(species abundance > 1%) + uncorrelated pheno var as predictors
 
 ```{r}
 # check the dist of the species relab sum of the table
@@ -122,7 +154,7 @@ length(s_sum[s_sum > 1])
 
 
 combined_fil <- cbind(s_tb_rf[,names(s_sum[s_sum > 1])], pheno %>% 
-                    select(-Sampleid)) 
+                    select(Toxicity, ORR, Disease_Status_CAR)) 
 
 
 combined_tox_RF_fil <- randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T , ntree = 1000 )  
@@ -139,7 +171,7 @@ combined_tox_RF_fil  %>%
 combined_tox_RF_fil
 ```
 
-No improvements at all. I think because the relatively small sample size and uneven distribution of the groups.
+No improvements at all. I think because the relatively small sample size and the signal itself is weak. There's no guarantee that there is association between microbiome and the outcome to begin with. 
 
 
 ```{r}
@@ -154,26 +186,31 @@ res <- sum_thre %>%
   map(function(thre) {
     s_sum_top <- quantile(s_sum, thre)
     combined_fil <- cbind(s_tb_rf[,names(s_sum[s_sum > s_sum_top])], pheno %>% 
-                    select(-Sampleid)) 
+                    select(Toxicity, ORR, Disease_Status_CAR)) 
     
     tibble(
-      num_fea = length(s_sum[s_sum > s_sum_top]) ,
+      num_fea = length(s_sum[s_sum > s_sum_top]) + 2,
       OOB_err_rate = randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T , ntree = tree_num )[['err.rate']][tree_num, 1]
       
     ) 
   }) %>% 
   bind_rows(.id = 'thre')
+
+
+res %>% 
+  kable(caption = 'Top N fraction features and the OOB error rate') %>% 
+  kable_styling(full_width = F, position = 'left')
 ```
 
 
 ### See the important features(species)
 
-Using the third table predictors.
+Using the table with features abundance > 1% and the two uncorrelated vars. 
 
 ```{r}
 # repeat the RF M = 100 times
 # pull top 10 features
-N <- 10
+N <- 10 
 M <- 100 
 pull_top_features <- function(){
   importance(randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T ) , type=1, scale = F) %>% 
@@ -197,5 +234,7 @@ stable_top_fea %>%
 
 ```
 
-What's interesting is this species *Ruminococcus gnavus*. [This recent paper](https://www.pnas.org/content/116/26/12672) points out that *Ruminococcus gnavus* produces a polysaccharide molecule that induces the production of inflammatory cytokines, which could be hypothesized to cause toxicity too.
 
+What's interesting is this species *Ruminococcus gnavus*. [This recent paper](https://www.pnas.org/content/116/26/12672) points out that *Ruminococcus gnavus* produces a polysaccharide molecule that induces the production of inflammatory cytokines.
+
+And [this paper](https://www.ncbi.nlm.nih.gov/pubmed/29330424) mentions that "*Faecalibacterium prausnitzii* decrease and *Ruminococcus gnavus* increase were the essential characteristics in CHF patients' gut microbiota".

@@ -217,7 +217,7 @@ phe_2 <- pheno  %>%
  
 chi2 <-  chisq.test(phe_2)
 chi2$p.value # reject the null hypothesis of independence
-
+ 
 
 # so they are actually correlated
 ```
