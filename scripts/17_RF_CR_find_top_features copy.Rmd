@@ -16,9 +16,11 @@ library(randomForest)
 library(ggpubr)
 library(tidyverse)
 library(kableExtra)
+library(arrangements)
+library(caret)
 ```
 
-## Response to Toxicity
+## Response to CR
 
 ### Glimpse at pheno table
 
@@ -61,7 +63,7 @@ pheno  %>%
 ### Use all features as predictors
 
 ```{r}
-tox_RF <- randomForest(s_tb_rf, factor(pheno$Toxicity), importance = T)
+tox_RF <- randomForest(s_tb_rf, factor(pheno$CR), importance = T)
 
 impor_feature <- importance(tox_RF, type=1) %>% 
   as.data.frame() %>% 
@@ -91,7 +93,7 @@ There are much for Y patients than N. If all assigning to Y it will probably lik
 combined <- cbind(s_tb_rf, pheno %>% 
                     select(-Sampleid)) 
 
-combined_tox_RF <- randomForest(formula = Toxicity ~ ., data = combined,  importance = T )  
+combined_tox_RF <- randomForest(formula = CR ~ ., data = combined,  importance = T )  
 
 combined_tox_RF  %>% 
   pluck('err.rate') %>% 
@@ -125,7 +127,7 @@ combined_fil <- cbind(s_tb_rf[,names(s_sum[s_sum > 1])], pheno %>%
                     select(-Sampleid)) 
 
 
-combined_tox_RF_fil <- randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T , ntree = 1000 )  
+combined_tox_RF_fil <- randomForest(formula = CR ~ ., data = combined_fil,  importance = T , ntree = 1000 )  
 
 combined_tox_RF_fil  %>% 
   pluck('err.rate') %>% 
@@ -158,12 +160,69 @@ res <- sum_thre %>%
     
     tibble(
       num_fea = length(s_sum[s_sum > s_sum_top]) ,
-      OOB_err_rate = randomForest(formula = Toxicity ~ ., data = combined_fil,  importance = T , ntree = tree_num )[['err.rate']][tree_num, 1]
+      OOB_err_rate = randomForest(formula = CR ~ ., data = combined_fil,  importance = T , ntree = tree_num )[['err.rate']][tree_num, 1]
       
     ) 
   }) %>% 
   bind_rows(.id = 'thre')
 ```
+
+Interesting, using no feature info actually has smaller OOB error rate.
+
+```{r}
+# try different combination of pheno to predict. (doesn't seem they are correlated right?)
+# select 2 out of 4 pheno vars other than CR
+all_var <- names(pheno)
+combi <- combinations(all_var[!all_var %in% c('Sampleid','CR')], 2) %>% 
+  as.data.frame(stringsAsFactors = F)
+
+phe_table <- apply(combi, 1, function(Row) {
+  phe_fil = pheno %>% 
+    select(CR, Row[['V1']], Row[['V2']])
+})
+
+# use those tables to do a random forest
+phe_fil_res <- phe_table %>% 
+  map(function(tbl) {
+     tibble(
+      OOB_err_rate = randomForest(formula = CR ~ ., data = tbl,  importance = T , ntree = tree_num )[['err.rate']][tree_num, 1]
+    ) 
+  }) %>% 
+  bind_rows() %>% 
+  bind_cols(combi) %>% 
+  mutate(phe_combi = str_glue('CR_{V1}_{V2}')) %>% 
+  select(-V1 , -V2) %>% 
+  arrange(desc(OOB_err_rate)) 
+
+# so the combi with the smallest error rate is:
+phe_fil_res %>% 
+  slice(which.min(OOB_err_rate)) %>% 
+  pull(phe_combi)
+
+
+# Is there correlation in the pheno table between CR and Disease_Class?
+phe_2 <- pheno  %>% 
+  select(CR, Disease_Class) %>% 
+  mutate(Disease_Class = if_else(as.character(Disease_Class) == 'CD19 Malignancy', 'CD19', 'Multi')) %>% 
+  table() 
+ 
+chi2 <-  chisq.test(phe_2)
+chi2$p.value # reject the null hypothesis of independence
+
+
+# CR and ORR
+phe_2 <- pheno  %>% 
+  select(CR, ORR)  %>% 
+  table() 
+ 
+chi2 <-  chisq.test(phe_2)
+chi2$p.value # reject the null hypothesis of independence
+
+
+# so they are actually correlated
+```
+
+
 
 
 ### See the important features(species)
