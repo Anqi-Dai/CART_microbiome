@@ -84,3 +84,37 @@ plot(pc_bc[,1], pc_bc[,2], col = pheno_col$CR_col, main = 'Pathway abundance col
 
 ```
 
+
+#############################################################################
+
+```{r}
+# the PCoA of the species abundance table
+spp <- read_tsv('../data/metaphlan2_result/merged_abundance_table_species.txt') %>% 
+  rename_all(funs(str_replace(., '_profile$','')))
+
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  select(-CAR_Group, -Censor_reason ) %>% 
+  mutate_at(vars(str_which(names(.),'Sampleid', negate = T)), factor)
+
+# to rearrange the cts table 
+spp <- bind_cols(spp[,1],spp[,pheno$Sampleid]) 
+
+# to put the feature table in the sample as rowname format to do the ML 
+spp <- spp %>% 
+  column_to_rownames('ID') %>% 
+  as.matrix()
+ 
+all.equal(colnames(spp), pheno$Sampleid)
+```
+
+```{r}
+pheno_col <- pheno %>% 
+  mutate(tox_col = if_else(Toxicity == 'Y', 'red', 'green '),
+         CR_col = if_else(CR == 'Y', 'red', 'green '))
+
+bc_dist <-  vegdist(t(spp), "bray")
+pc_bc <- cmdscale(bc_dist, k = 2) 
+plot(pc_bc[,1], pc_bc[,2], col = pheno_col$tox_col, main = 'species abundance color by tox')
+plot(pc_bc[,1], pc_bc[,2], col = pheno_col$CR_col, main = 'species abundance color by CR')
+```
+
