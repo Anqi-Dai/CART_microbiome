@@ -127,8 +127,43 @@ pc_bc %>%
   as.data.frame() %>% 
   rownames_to_column('Sampleid') %>% 
   full_join(uppheno, by = 'Sampleid') %>% 
-  ggdotplot(x  = 'V1', y = 'V2', color =  'Toxicity', fill = 'Toxicity', 
-            palette = 'lancet') 
-  
+  ggplot(aes(x  = V1, y = V2, color =  Toxicity, fill = Toxicity)) +
+  geom_point() +
+  labs(x = 'PCo 1', y = 'PCo 2', title = 'PCoA plot for response to Toxicity') +
+  theme_classic() +
+  scale_color_manual(values = c('#42B440', '#EC0000'))  +
+  scale_fill_manual(values = c('#42B440', '#EC0000')) +
+  ggsave('../figs/PCoA/response_tox.jpg', dpi = 300, width = 6, height = 5)
+
+ 
+
+
+pc_bc %>% 
+  as.data.frame() %>% 
+  rownames_to_column('Sampleid') %>% 
+  full_join(uppheno, by = 'Sampleid') %>% 
+  ggplot(aes(x  = V1, y = V2, color =  CR, fill = CR)) +
+  geom_point() +
+  labs(x = 'PCo 1', y = 'PCo 2', title = 'PCoA plot for response to CR') +
+  theme_classic() +
+  scale_color_manual(values = c('#42B440', '#EC0000'))  +
+  scale_fill_manual(values = c('#42B440', '#EC0000')) +
+  ggsave('../figs/PCoA/response_CR.jpg', dpi = 300, width = 6, height = 5) 
+
+
+
+
+pc_bc %>% 
+  as.data.frame() %>% 
+  rownames_to_column('Sampleid') %>% 
+  full_join(uppheno, by = 'Sampleid') %>% 
+  ggplot(aes(x  = V1, y = V2, color =  ORR, fill = ORR)) +
+  geom_point() +
+  labs(x = 'PCo 1', y = 'PCo 2', title = 'PCoA plot for response to ORR') +
+  theme_classic() +
+  scale_color_manual(values = c('#42B440', '#EC0000'))  +
+  scale_fill_manual(values = c('#42B440', '#EC0000')) +
+  ggsave('../figs/PCoA/response_ORR.jpg', dpi = 300, width = 6, height = 5) 
 ```
+
 

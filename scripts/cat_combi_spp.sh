@@ -1,0 +1,2 @@
+cat ../data/lefse_input/pheno__CR__Disease_Status_CAR.txt ../data/metaphlan2_result/merged_abundance_table_species_reordered.txt > ../data/lefse_input/spp_abundace_pheno__CR__Disease_Status_CAR.tsv
+cat ../data/lefse_input/pheno__Toxicity__Disease_Status_CAR.txt ../data/metaphlan2_result/merged_abundance_table_species_reordered.txt > ../data/lefse_input/spp_abundace_pheno__Toxicity__Disease_Status_CAR.tsv

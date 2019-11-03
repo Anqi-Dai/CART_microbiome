@@ -43,33 +43,16 @@ apply(combi, 1, function(row) {
 ## Sorting the relab abundance table so that sampleid would align  
   
 ```{r}
-# input: relative abundance unstratified for pathway abundance
-relab <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
-  rename(sampleid = names(.)[1]) %>% 
-  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
-  # remove the unmapped and the unintegrated record
-  filter(!sampleid %in% c('UNMAPPED','UNINTEGRATED'))
+spp <- read_csv('../data/metaphlan2_result/merged_abundance_table_species_reordered.txt')
 
-# see if the sampleid in the relab is clean(do I need to clean additionally)
-all.equal(sort(pheno$Sampleid), sort(colnames(relab)[2:ncol(relab)])) 
-
-# reorder the relab column to be the same with pheno table
-relab_or <- bind_cols(relab[,1],relab[,pheno$Sampleid]) 
-
-# just to be sure
-all.equal(colnames(relab_or)[2:ncol(relab_or)], pheno$Sampleid)
-
-# write out the table
-relab_or %>% 
-  write_tsv('../data/pheno_aligned_relab_table/humann2_pathabundance_cpm_unstratified.tsv')
+all.equal(colnames(spp)[2:ncol(spp)], pheno$Sampleid)
 ```
-
 
 ## Create the bash commmand to run the lefse steps
 
 ```{r}
 # create the commad in df with str_glue and then output to a bash script
-pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = '.txt$', full.names = T)) %>% 
+pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = 'Disease_Status_CAR.txt$', full.names = T)) %>% 
   mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
 
 pheno_combi %>% 

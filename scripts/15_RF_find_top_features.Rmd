@@ -42,6 +42,10 @@ pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>%
 # to rearrange the cts table 
 s_tb <- bind_cols(s_tb[,1],s_tb[,pheno$Sampleid]) 
 
+# write out the reordered version
+s_tb %>% 
+  write_tsv('../data/metaphlan2_result/merged_abundance_table_species_reordered.tsv')
+
 # to put the feature table in the sample as rowname format to do the ML 
 s_tb_rf <- s_tb %>% 
   column_to_rownames('ID') %>% 
