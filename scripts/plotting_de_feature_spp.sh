@@ -1,2 +1,2 @@
-plot_res.py ../data/lefse_input/spp_abundace_pheno__CR__Disease_Status_CAR.res  ../figs/spp_abundace_pheno__CR__Disease_Status_CAR.png --feature_font_size 4 --width 10 --dpi 300 --title pheno__CR__Disease_Status_CAR.
-plot_res.py ../data/lefse_input/spp_abundace_pheno__Toxicity__Disease_Status_CAR.res  ../figs/spp_abundace_pheno__Toxicity__Disease_Status_CAR.png --feature_font_size 4 --width 10 --dpi 300 --title pheno__Toxicity__Disease_Status_CAR.
+plot_res.py ../data/lefse_input/spp_abundace_pheno__CR__Disease_Class.res  ../figs/spp_abundace_pheno__CR__Disease_Class.png --feature_font_size 4 --width 10 --dpi 300 --title pheno__CR__Disease_Class.
+plot_res.py ../data/lefse_input/spp_abundace_pheno__Toxicity__Disease_Class.res  ../figs/spp_abundace_pheno__Toxicity__Disease_Class.png --feature_font_size 4 --width 10 --dpi 300 --title pheno__Toxicity__Disease_Class.

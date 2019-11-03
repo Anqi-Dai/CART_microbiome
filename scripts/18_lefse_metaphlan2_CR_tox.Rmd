@@ -26,7 +26,7 @@ pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>%
 ```{r}
 # get different combination of the classes
 classes <- c('CR', 'Toxicity')
-subclass <- c('Disease_Status_CAR')
+subclass <- c('Disease_Class')
 
 combi <- expand.grid(classes = classes,subclass = subclass)
 
@@ -52,46 +52,46 @@ all.equal(colnames(spp)[2:ncol(spp)], pheno$Sampleid)
 
 ```{r}
 # create the commad in df with str_glue and then output to a bash script
-pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = 'Disease_Status_CAR.txt$', full.names = T)) %>% 
+pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = 'Disease_Class.txt$', full.names = T)) %>% 
   mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
 
 pheno_combi %>% 
-  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/pheno_aligned_relab_table/humann2_pathabundance_cpm_unstratified.tsv > ../data/lefse_input/pathway_abundace_{combi}tsv')) %>% 
+  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/metaphlan2_result/merged_abundance_table_species_reordered.tsv > ../data/lefse_input/spp_abundace_{combi}tsv')) %>% 
   select(cat_cmd) %>% 
-  write_csv('cat_combi_CT.sh', col_names = F)
+  write_csv('cat_combi_spp.sh', col_names = F)
 ```
 
 
 ```{r}
 # create the cmd to do the format input stuff
 pheno_combi %>% 
-  mutate(input_tsv = str_glue('../data/lefse_input/pathway_abundace_{combi}tsv'),
+  mutate(input_tsv = str_glue('../data/lefse_input/spp_abundace_{combi}tsv'),
          fmt_input = str_replace(input_tsv, 'tsv','in'),
          fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -s 2 -u 3 -o 1000000')) %>% 
   select(fmt_cmd) %>% 
-  write_csv('format_input_CT.sh', col_names = F)
+  write_csv('format_input_spp.sh', col_names = F)
 ```
 
 
 ```{r}
 # the actual step to run lefse
 pheno_combi %>% 
-  mutate(fmt_input = str_glue('../data/lefse_input/pathway_abundace_{combi}in'),
+  mutate(fmt_input = str_glue('../data/lefse_input/spp_abundace_{combi}in'),
          lefse_res = str_replace(fmt_input, 'in$','res'),
          run_cmd = str_glue('run_lefse.py {fmt_input} {lefse_res}')) %>% 
   select(run_cmd) %>% 
-  write_csv('run_lefse_CT.sh', col_names = F)
+  write_csv('run_lefse_spp.sh', col_names = F)
 ```
 
 
 ```{r}
 # plotting cmd 
 pheno_combi %>% 
-  mutate(lefse_res = str_glue('../data/lefse_input/pathway_abundace_{combi}res'),
-         fea_png = str_glue('../figs/pathway_abundace_{combi}png'),
+  mutate(lefse_res = str_glue('../data/lefse_input/spp_abundace_{combi}res'),
+         fea_png = str_glue('../figs/spp_abundace_{combi}png'),
          cmd = str_glue('plot_res.py {lefse_res}  {fea_png} --feature_font_size 4 --width 10 --dpi 300 --title {combi}')) %>% 
   select(cmd) %>% 
-  write_csv('plotting_de_feature_CT.sh', col_names = F)
+  write_csv('plotting_de_feature_spp.sh', col_names = F)
 ```
 
 ####################################### below is command line ##########################################
@@ -100,10 +100,10 @@ pheno_combi %>%
 
 ```{bash}
 # this is the bash script to do the actual concatenation 
-bash cat_combi_CT.sh
-bash format_input_CT.sh
-bash run_lefse_CT.sh
-bash plotting_de_feature_CT.sh
+bash cat_combi_spp.sh
+bash format_input_spp.sh
+bash run_lefse_spp.sh
+bash plotting_de_feature_spp.sh
 ```
 
 
