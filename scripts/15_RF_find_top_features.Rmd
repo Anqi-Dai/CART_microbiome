@@ -244,6 +244,46 @@ And [this paper](https://www.ncbi.nlm.nih.gov/pubmed/29330424) mentions that "*F
 ### Use the toxicity grade
 
 ```{r}
+crs <- read_csv('../data/cleaned_pheno/cleaned_CRS.csv')
+ 
+pheno <- pheno %>% 
+  full_join(crs %>% 
+              select(Sampleid  = sampleid, CRS_grade), by = 'Sampleid') %>% 
+  mutate(CRS_grade = factor(CRS_grade))
 
+
+all.equal(rownames(s_tb_rf), pheno$Sampleid)
+
+########################################################################################
+
+# what if just do as Tsoni says that classify 0 and 1 as N the other as Y
+pheno <- pheno %>% 
+  mutate(tox_crs = factor(if_else(as.character(CRS_grade) %in% c('0','1'), 'NO', 'YES')))
+
+
+# select the 18 features that have > 95% relab
+s_sum_top <- quantile(s_sum, 0.95)
+combined_fil <- cbind(s_tb_rf[,names(s_sum[s_sum > s_sum_top])], pheno %>% 
+                    select(tox_crs, ORR, Disease_Status_CAR)) 
+
+
+dim(combined_fil) 
+   
+
+
+CRS_RF <- randomForest(formula = tox_crs ~ ., data = combined_fil,  importance = T )  
+
+CRS_RF  %>% 
+  pluck('err.rate') %>% 
+  as.data.frame() %>% 
+  mutate(ntree = seq(1, nrow(.))) %>% 
+  gather(key = 'type', value = 'ERR', 'OOB':'YES') %>% 
+  ggline(x = 'ntree', y = 'ERR', color = 'type', palette = 'lancet') +
+  labs(x = 'Number of trees', 
+       y = 'Error rate') 
+
+CRS_RF    # very high error rate. not working. 
 ```
+
+
 

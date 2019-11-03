@@ -135,14 +135,16 @@ samps <- read_csv('../data/cleaned_pheno/MRN_sampleid.txt', col_types = 'cc') %>
   # really mad that i have to remove some records in this way
   mutate(stop = replace(stop, MRN == '35546332' & grade == '0', '2018-01-30')) %>% 
   arrange(desc(stop)) %>% 
-  distinct(sampleid, .keep_all = T)
-
-
-
+  distinct(sampleid, .keep_all = T) %>% 
+  rename(CRS_grade = grade) %>% 
+  select(-stop)
 
 # 35546332 has both None and grade 1 for CRS
 # based on the date choose the 0
 # choose the latest date grade for 00332772 : 1
-# choose the latest date grade for 35546332 : 0
+# choose the latest date grade for 35546332 : 0  
+
+samps %>% 
+  write_csv('../data/cleaned_pheno/cleaned_CRS.csv')
 ```
 
