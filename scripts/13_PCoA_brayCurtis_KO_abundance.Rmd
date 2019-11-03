@@ -6,6 +6,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)  
 library(tidyverse)
+library(ggpubr)
 library(vegan)
 ```
 
@@ -116,5 +117,18 @@ bc_dist <-  vegdist(t(spp), "bray")
 pc_bc <- cmdscale(bc_dist, k = 2) 
 plot(pc_bc[,1], pc_bc[,2], col = pheno_col$tox_col, main = 'species abundance color by tox')
 plot(pc_bc[,1], pc_bc[,2], col = pheno_col$CR_col, main = 'species abundance color by CR')
+
+
+# updated pheno
+uppheno <- read_csv('../data/cleaned_pheno/pheno_w_expanded_tox.csv', col_types = 'cfffffff')
+
+# ggplot 
+pc_bc %>% 
+  as.data.frame() %>% 
+  rownames_to_column('Sampleid') %>% 
+  full_join(uppheno, by = 'Sampleid') %>% 
+  ggdotplot(x  = 'V1', y = 'V2', color =  'Toxicity', fill = 'Toxicity', 
+            palette = 'lancet') 
+  
 ```
 

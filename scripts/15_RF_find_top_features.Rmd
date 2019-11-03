@@ -251,7 +251,6 @@ pheno <- pheno %>%
               select(Sampleid  = sampleid, CRS_grade), by = 'Sampleid') %>% 
   mutate(CRS_grade = factor(CRS_grade))
 
-
 all.equal(rownames(s_tb_rf), pheno$Sampleid)
 
 ########################################################################################
@@ -260,6 +259,11 @@ all.equal(rownames(s_tb_rf), pheno$Sampleid)
 pheno <- pheno %>% 
   mutate(tox_crs = factor(if_else(as.character(CRS_grade) %in% c('0','1'), 'NO', 'YES')))
 
+
+# write out this pheno for future use
+
+pheno %>% 
+  write_csv('../data/cleaned_pheno/pheno_w_expanded_tox.csv')
 
 # select the 18 features that have > 95% relab
 s_sum_top <- quantile(s_sum, 0.95)
