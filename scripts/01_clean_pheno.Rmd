@@ -103,3 +103,46 @@ intersect(have_sg$sample_id, phe_M_clean$Sampleid) %>%
   write.table('../data/input_for_cluster_sampleid/valid_sample_names.txt', col.names = F, row.names = F, quote = F)
 ```
 
+
+```{r}
+# retrieve the toxicity grade info from the event table
+events <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 10232019 wo Censor .xlsx',
+                    sheet = 3) %>% 
+  select(MRN, Event, `Event Description`, `Event Stop`) %>% 
+  rename(descr = names(.)[3],
+         stop = names(.)[4]) %>% 
+  filter(Event %in% c('CRS','ICANS')) %>% 
+  mutate(grade = if_else(str_detect(descr, '^No'), '0', str_extract(descr, '[1|2|3]'))) %>% 
+  select(-descr)
+
+table(events$Event)
+  
+# 35402481 patient ICANS record missing.
+
+# try with the CRS first
+tox_CRS <- events %>% 
+  filter(Event == 'CRS')
+
+table(tox_CRS$grade)
+
+# try to get the sample id from MRN
+# this part was manually done by me cleaning M's table
+
+# below is for CRS only
+samps <- read_csv('../data/cleaned_pheno/MRN_sampleid.txt', col_types = 'cc') %>% 
+  left_join(tox_CRS, by  = 'MRN') %>% 
+  filter(sampleid %in% pheno$Sampleid) %>% 
+  # really mad that i have to remove some records in this way
+  mutate(stop = replace(stop, MRN == '35546332' & grade == '0', '2018-01-30')) %>% 
+  arrange(desc(stop)) %>% 
+  distinct(sampleid, .keep_all = T)
+
+
+
+
+# 35546332 has both None and grade 1 for CRS
+# based on the date choose the 0
+# choose the latest date grade for 00332772 : 1
+# choose the latest date grade for 35546332 : 0
+```
+

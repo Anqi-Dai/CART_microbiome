@@ -240,3 +240,10 @@ stable_top_fea %>%
 What's interesting is this species *Ruminococcus gnavus*. [This recent paper](https://www.pnas.org/content/116/26/12672) points out that *Ruminococcus gnavus* produces a polysaccharide molecule that induces the production of inflammatory cytokines.
 
 And [this paper](https://www.ncbi.nlm.nih.gov/pubmed/29330424) mentions that "*Faecalibacterium prausnitzii* decrease and *Ruminococcus gnavus* increase were the essential characteristics in CHF patients' gut microbiota".
+
+### Use the toxicity grade
+
+```{r}
+
+```
+
