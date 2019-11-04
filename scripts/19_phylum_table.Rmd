@@ -1,0 +1,55 @@
+---
+title: "Look at the phylum level"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+```
+
+```{r}
+phy <- read_tsv('../data/metaphlan2_result/merged_abundance_table_phylum.txt') %>% 
+  rename_all(funs(str_replace(., '_profile$','')))
+
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  select(-CAR_Group, -Censor_reason ) 
+
+#mutate_at(vars(str_which(names(.),'Sampleid', negate = T)), factor)
+
+
+phy <- bind_cols(phy[,1],phy[,pheno$Sampleid]) 
+
+all.equal(colnames(phy)[2:ncol(phy)], pheno$Sampleid)
+
+```
+
+```{r}
+phy %>% 
+  gather(key = 'Sampleid', value = 'relab', names(.)[2]: names(.)[ncol(.)]) %>% 
+  left_join(pheno, by = 'Sampleid') %>% 
+  ggboxplot(x = 'ID', y = 'relab', color = 'Toxicity', palette  = 'lancet', add = 'jitter')  +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1)) 
+```
+
+```{r}
+phy %>% 
+  gather(key = 'Sampleid', value = 'relab', names(.)[2]: names(.)[ncol(.)]) %>% 
+  left_join(pheno, by = 'Sampleid') %>% 
+  filter(ID == 'Bacteroidetes') %>% 
+  select(ID, relab, Toxicity) %>% 
+  ggboxplot(x = 'Toxicity', y = 'relab', color = 'Toxicity', palette  = 'lancet', add = 'jitter')   + 
+  stat_compare_means()
+```
+
+```{r}
+phy %>% 
+  gather(key = 'Sampleid', value = 'relab', names(.)[2]: names(.)[ncol(.)]) %>% 
+  left_join(pheno, by = 'Sampleid') %>% 
+  filter(ID == 'Firmicutes') %>% 
+  select(ID, relab, Toxicity) %>% 
+  ggboxplot(x = 'Toxicity', y = 'relab', color = 'Toxicity', palette  = 'lancet', add = 'jitter')   + 
+  stat_compare_means()  
+```
+
