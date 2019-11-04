@@ -113,7 +113,7 @@ pheno_combi %>%
 pheno_combi %>% 
   mutate(lefse_res = str_glue('../data/lefse_input/spp_abundace_{combi}res'),
          cla_png = str_glue('../figs/cladogram/spp_abundace_lefse_{combi}png'),
-         cmd = str_glue('plot_cladogram.py {lefse_res}  {cla_png}  --dpi 300 --format png --title {combi} --label_font_size 3')) %>% 
+         cmd = str_glue('plot_cladogram.py {lefse_res}  {cla_png}  --dpi 300 --format png --title {combi} --label_font_size 4')) %>% 
   select(cmd) %>% 
   write_csv('plotting_cladogram_spp.sh', col_names = F)
 ```
@@ -130,7 +130,7 @@ bash cat_combi_spp.sh
 bash format_input_spp.sh
 bash run_lefse_spp.sh
 bash plotting_de_feature_spp.sh
-plotting_cladogram_spp.sh
+bash plotting_cladogram_spp.sh
 ```
 
 
