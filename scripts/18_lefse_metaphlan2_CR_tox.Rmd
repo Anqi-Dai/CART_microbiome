@@ -13,7 +13,6 @@ library(tidyverse)
 # Run unstratified pathway abundance of Melody's project thru lefse
 * CR & Toxicity
 
-
 ## Sorting out the pheno table for the valid samples
 
 ```{r}
@@ -25,8 +24,10 @@ pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>%
  
 ```{r}
 # get different combination of the classes
+# using no subclass (11-4-2019)
+
 classes <- c('CR', 'Toxicity')
-subclass <- c('Disease_Class')
+
 
 combi <- expand.grid(classes = classes,subclass = subclass)
 
@@ -34,29 +35,41 @@ combi <- expand.grid(classes = classes,subclass = subclass)
 
 apply(combi, 1, function(row) {
   pheno %>% 
-    select(row[['classes']], row[['subclass']]) %>% 
+    select(row[['classes']]) %>% 
     t() %>% 
-    write.table(str_glue('../data/lefse_input/pheno__{row[["classes"]]}__{row[["subclass"]]}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+    write.table(str_glue('../data/lefse_input/pheno__{row[["classes"]]}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
 })
 ```
    
 ## Sorting the relab abundance table so that sampleid would align  
   
 ```{r}
-spp <- read_csv('../data/metaphlan2_result/merged_abundance_table_species_reordered.txt')
+# keeping the leading taxa info 
+spp <- read_tsv('../data/metaphlan2_result/merged_abundance_table.txt') %>% 
+  # remove the rows that have strain info
+  filter(!str_detect(ID, 't__')) %>% 
+  # keep the rows that have species info and the header
+  filter(str_detect(ID, 's__|^ID')) %>% 
+  rename_all(funs(str_replace(., '_profile$','')))
+
+spp <- bind_cols(spp[,1],spp[,pheno$Sampleid]) 
 
 all.equal(colnames(spp)[2:ncol(spp)], pheno$Sampleid)
+
+# write out this table 
+spp %>% 
+  write_tsv('../data/metaphlan2_result/merged_abundance_table_species_reordered_w_taxa.tsv')
 ```
 
 ## Create the bash commmand to run the lefse steps
 
 ```{r}
 # create the commad in df with str_glue and then output to a bash script
-pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = 'Disease_Class.txt$', full.names = T)) %>% 
+pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = '[Toxicity|CR].txt$', full.names = T)) %>% 
   mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
-
+ 
 pheno_combi %>% 
-  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/metaphlan2_result/merged_abundance_table_species_reordered.tsv > ../data/lefse_input/spp_abundace_{combi}tsv')) %>% 
+  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/metaphlan2_result/merged_abundance_table_species_reordered_w_taxa.tsv > ../data/lefse_input/spp_abundace_{combi}tsv')) %>% 
   select(cat_cmd) %>% 
   write_csv('cat_combi_spp.sh', col_names = F)
 ```
@@ -67,7 +80,7 @@ pheno_combi %>%
 pheno_combi %>% 
   mutate(input_tsv = str_glue('../data/lefse_input/spp_abundace_{combi}tsv'),
          fmt_input = str_replace(input_tsv, 'tsv','in'),
-         fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -s 2 -u 3 -o 1000000')) %>% 
+         fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -u 2 -o 1000000')) %>% 
   select(fmt_cmd) %>% 
   write_csv('format_input_spp.sh', col_names = F)
 ```
@@ -94,6 +107,19 @@ pheno_combi %>%
   write_csv('plotting_de_feature_spp.sh', col_names = F)
 ```
 
+
+```{r}
+# plot the cladogram   
+pheno_combi %>% 
+  mutate(lefse_res = str_glue('../data/lefse_input/spp_abundace_{combi}res'),
+         cla_png = str_glue('../figs/cladogram/spp_abundace_lefse_{combi}png'),
+         cmd = str_glue('plot_cladogram.py {lefse_res}  {cla_png}  --dpi 300 --format png --title {combi} --label_font_size 3')) %>% 
+  select(cmd) %>% 
+  write_csv('plotting_cladogram_spp.sh', col_names = F)
+```
+
+
+
 ####################################### below is command line ##########################################
 
 ## Run in terminal the below bash script
@@ -104,6 +130,7 @@ bash cat_combi_spp.sh
 bash format_input_spp.sh
 bash run_lefse_spp.sh
 bash plotting_de_feature_spp.sh
+plotting_cladogram_spp.sh
 ```
 
 
