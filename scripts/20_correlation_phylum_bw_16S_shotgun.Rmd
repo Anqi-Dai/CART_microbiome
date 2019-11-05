@@ -1,12 +1,21 @@
 ---
 title: "Correlation between 16S and shotgun"
-output: html_document
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
 library(tidyverse)
 library(ggpubr)
+library(RColorBrewer)
+library(kableExtra)
 ```
 
 ## Load the two datasets
@@ -27,7 +36,7 @@ dada2 <- read_rds('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/data/asv_set.
 
 
 # how many samples are in the dada2 data
-table(dada2 %>% 
+dada2_nsamps <- table(dada2 %>% 
   pluck('asv_counts') %>% 
     pull(sampleid)) %>% 
   names %>% 
@@ -73,7 +82,9 @@ Two <- two %>%
     full_join(two %>% 
     pluck('s16S') %>% 
     rename(s16S_relab = relab) %>% 
-    select(-Group))
+    select(-Group)) %>%  
+  # to uniform the two data
+  mutate(s16S_relab = s16S_relab*100)
   
 ```
 
@@ -81,10 +92,33 @@ Two <- two %>%
 
 ```{r}
 Two %>% 
-  ggplot(aes(x = shotgun_relab, y = s16S_relab)) +
+  ggplot(aes(x = shotgun_relab, y = s16S_relab, col = phylum)) +
     geom_point() +
-    facet_grid(sampleid~.) +
+    facet_wrap(~sampleid) +
+  scale_color_manual(values = brewer.pal(n = length(ol_phylum), name = "Dark2")) +
+  labs(x = 'Shotgun data',
+       y = '16S data',
+       title = 'Relative abundance comparison between shotgun and 16S data\nat phylum level') +
   ggsave('../figs/correlation/cor_between_16_and_shotgun.jpg', width = 10, height = 10, dpi = 300)
+
+ 
+spearman_cor <- Two %>% 
+  split(.$sampleid) %>% 
+  map_dfr(~ round(cor.test(.$shotgun_relab, 
+                           .$s16S_relab, 
+                           method = 'spearman', 
+                           exact = F)$estimate, 2)) %>% 
+  gather(key = 'sampleid', value = 'rho') %>% 
+  arrange(rho)
+
+
+spearman_cor %>% 
+  kable(caption = 'Spearman correlation at phylum level') %>% 
+  kable_styling(full_width = T, position = 'left')
+
+
+spearman_cor %>% 
+  write_csv('../data/spearman_cor_phylum.csv')
 ```
 
 
