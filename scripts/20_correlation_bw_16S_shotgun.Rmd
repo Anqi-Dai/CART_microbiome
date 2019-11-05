@@ -1,0 +1,92 @@
+---
+title: "Correlation between 16S and shotgun"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+```
+
+## Load the two datasets
+
+```{r}
+# shotgun
+gun <- read_tsv('../data/metaphlan2_result/merged_abundance_table_phylum.txt') %>% 
+  rename_all(funs(str_replace(., '_profile$',''))) %>% 
+  rename(phylum = ID)
+
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  select(-CAR_Group, -Censor_reason )
+```
+
+
+```{r}
+dada2 <- read_rds('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/data/asv_set.RDS')
+
+
+# how many samples are in the dada2 data
+table(dada2 %>% 
+  pluck('asv_counts') %>% 
+    pull(sampleid)) %>% 
+  names %>% 
+  length
+
+# get the relab at phylum level
+sixteen <- dada2 %>% 
+  pluck('asv_counts') %>% 
+  select(ASV, count_relative, sampleid) %>% 
+  left_join(dada2 %>% 
+    pluck('asv_annotation') %>% 
+    select(ASV, phylum ), by = 'ASV') %>% 
+  filter(!is.na(phylum)) %>% 
+  # select the 33 that are in the shotgun
+  filter(sampleid %in% pheno$Sampleid) %>% 
+  group_by(sampleid, phylum) %>% 
+  summarise(relab = sum(count_relative)) %>% 
+  spread(key = 'sampleid', value = 'relab', fill = 0) 
+
+
+```
+
+
+```{r}
+# same phylum term
+ol_phylum <- intersect(sixteen$phylum, gun$phylum)
+
+# have an idea that i better put the two of them table in the same table with overlapped phylum terms
+
+two <- list(shotgun = gun,
+            s16S = sixteen) %>% 
+  imap(~  ..1 %>% 
+      filter(phylum %in% ol_phylum) %>% 
+      gather(key = 'sampleid', value = 'relab', names(.)[2] : names(.)[ncol(.)]) %>% 
+      mutate(Group = ..2) %>% 
+      mutate_at(vars(str_which(names(.),'relab', negate = T)), factor)
+  ) 
+
+Two <- two %>% 
+  pluck('shotgun') %>% 
+  rename(shotgun_relab = relab) %>% 
+  select(-Group) %>% 
+    full_join(two %>% 
+    pluck('s16S') %>% 
+    rename(s16S_relab = relab) %>% 
+    select(-Group))
+  
+```
+
+## Compare with Spearman correlation for each sample
+
+```{r}
+Two %>% 
+  ggplot(aes(x = shotgun_relab, y = s16S_relab)) +
+    geom_point() +
+    facet_grid(sampleid~.) +
+  ggsave('../figs/correlation/cor_between_16_and_shotgun.jpg', width = 10, height = 10, dpi = 300)
+```
+
+
+
+

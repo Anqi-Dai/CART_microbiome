@@ -40,7 +40,8 @@ phy %>%
   filter(ID == 'Bacteroidetes') %>% 
   select(ID, relab, Toxicity) %>% 
   ggboxplot(x = 'Toxicity', y = 'relab', color = 'Toxicity', palette  = 'lancet', add = 'jitter')   + 
-  stat_compare_means()
+  stat_compare_means()+
+  ggsave('../figs/phylum_abundance_Bacteroidetes.jpg')
 ```
 
 ```{r}
@@ -50,6 +51,7 @@ phy %>%
   filter(ID == 'Firmicutes') %>% 
   select(ID, relab, Toxicity) %>% 
   ggboxplot(x = 'Toxicity', y = 'relab', color = 'Toxicity', palette  = 'lancet', add = 'jitter')   + 
-  stat_compare_means()  
+  stat_compare_means()  +
+  ggsave('../figs/phylum_abundance_Firmicutes.jpg')
 ```
 
