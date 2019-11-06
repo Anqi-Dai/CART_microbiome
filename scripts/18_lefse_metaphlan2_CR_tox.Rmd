@@ -2,7 +2,7 @@
 title: "Format for lefse and run on the classes CR and tox"
 output: html_document
 ---
-       
+         
 Melody's project
 
 ```{r setup, include=FALSE}
@@ -46,10 +46,6 @@ apply(combi, 1, function(row) {
 ```{r}
 # keeping the leading taxa info 
 spp <- read_tsv('../data/metaphlan2_result/merged_abundance_table.txt') %>% 
-  # remove the rows that have strain info
-  filter(!str_detect(ID, 't__')) %>% 
-  # keep the rows that have species info and the header
-  filter(str_detect(ID, 's__|^ID')) %>% 
   rename_all(funs(str_replace(., '_profile$','')))
 
 spp <- bind_cols(spp[,1],spp[,pheno$Sampleid]) 
@@ -58,7 +54,7 @@ all.equal(colnames(spp)[2:ncol(spp)], pheno$Sampleid)
 
 # write out this table 
 spp %>% 
-  write_tsv('../data/metaphlan2_result/merged_abundance_table_species_reordered_w_taxa.tsv')
+  write_tsv('../data/metaphlan2_result/merged_abundance_table_WHOLE_reordered.tsv')
 ```
 
 ## Create the bash commmand to run the lefse steps
@@ -69,7 +65,7 @@ pheno_combi <- tibble(pheno_file = list.files('../data/lefse_input', pattern = '
   mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
  
 pheno_combi %>% 
-  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/metaphlan2_result/merged_abundance_table_species_reordered_w_taxa.tsv > ../data/lefse_input/spp_abundace_{combi}tsv')) %>% 
+  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/metaphlan2_result/merged_abundance_table_WHOLE_reordered.tsv > ../data/lefse_input/spp_abundace_{combi}tsv')) %>% 
   select(cat_cmd) %>% 
   write_csv('cat_combi_spp.sh', col_names = F)
 ```

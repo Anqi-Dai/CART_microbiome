@@ -98,7 +98,7 @@ final_pheno %>%
 # write out the meta data info with tox and CR in each of the table
 final_pheno %>% 
   select(Sampleid, Toxicity) %>% 
-  write_csv('../data/cleaned_pheno/tox_metadata.csv')
+  write_csv('../data/cleaned_pheno/melody_tox_metadata.csv')
 ```
 
 
