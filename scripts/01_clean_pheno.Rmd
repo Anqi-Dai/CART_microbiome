@@ -93,7 +93,12 @@ final_pheno <- phe_M_clean %>%
   filter(Sampleid %in% have_sg$sample_id)
 
 final_pheno %>% 
-  write_csv('../data/cleaned_pheno/final_pheno.csv')
+  write_csv('../data/cleaned_pheno/final_pheno.csv') 
+
+# write out the meta data info with tox and CR in each of the table
+final_pheno %>% 
+  select(Sampleid, Toxicity) %>% 
+  write_csv('../data/cleaned_pheno/tox_metadata.csv')
 ```
 
 
