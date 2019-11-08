@@ -86,7 +86,10 @@ Two <- two %>%
     rename(s16S_relab = relab) %>% 
     select(-Group)) %>%  
   # to uniform the two data
-  mutate(s16S_relab = s16S_relab*100)
+  mutate(s16S_relab = s16S_relab*100) %>% 
+  # log10 transform the data add pseudocounto f 0.000001
+  mutate(shotgun_relab = log10(shotgun_relab + 0.0001),
+         s16S_relab = log10(s16S_relab + 0.0001))
   
 ```
 
@@ -97,12 +100,32 @@ Two %>%
   ggplot(aes(x = shotgun_relab, y = s16S_relab)) +
     geom_point() +
     facet_wrap(~sampleid) +
-  labs(x = 'Shotgun data',
-       y = '16S data',
-       title = 'Relative abundance comparison between shotgun and 16S data\nat genus level') +
+  geom_abline(intercept = 0, slope = 1, col = 'red', linetype = 'dashed') +
+  geom_vline(xintercept = 0, col= 'forestgreen', linetype = 'dashed') +
+  geom_hline(yintercept = 0, col= 'forestgreen', linetype = 'dashed') +
+  labs(x = 'log10(Shotgun data)',
+       y = 'log10(16S data)',
+       title = 'log10 transformed relative abundance comparison between shotgun and 16S data\nat genus level') +
+  theme_light()+
   ggsave('../figs/correlation/cor_between_16_and_shotgun_genus.jpg', width = 10, height = 10, dpi = 300)
 
 
+# plot a single sample's plot to show the details
+Two %>% 
+  filter(sampleid == '275G') %>% 
+  ggplot(aes(x = shotgun_relab, y = s16S_relab)) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1, col = 'red', linetype = 'dashed') +
+    geom_vline(xintercept = 0, col= 'forestgreen', linetype = 'dashed') +
+    geom_hline(yintercept = 0, col= 'forestgreen', linetype = 'dashed') +
+    labs(x = 'log10(Shotgun data)',
+         y = 'log10(16S data)',
+         title = 'log10(relative abundance) comparison (genus): 275G') +
+    theme_light()+
+    ggsave('../figs/correlation/275G_cor_between_16_and_shotgun_genus.jpg', width = 5, height = 5, dpi = 300)
+
+
+# spearman_cor
 spearman_cor <- Two %>% 
   split(.$sampleid) %>% 
   map_dfr(~ round(cor.test(.$shotgun_relab, 
@@ -115,7 +138,7 @@ spearman_cor <- Two %>%
 
 spearman_cor %>% 
   kable(caption = 'Spearman correlation at genus level') %>% 
-  kable_styling(full_width = T, position = 'left')
+  kable_styling(full_width = F, position = 'left')
   
 ```
  

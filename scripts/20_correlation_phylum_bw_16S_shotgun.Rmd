@@ -84,7 +84,10 @@ Two <- two %>%
     rename(s16S_relab = relab) %>% 
     select(-Group)) %>%  
   # to uniform the two data
-  mutate(s16S_relab = s16S_relab*100)
+  mutate(s16S_relab = s16S_relab*100) %>% 
+  # log10 transform the data add pseudocounto f 0.000001
+  mutate(shotgun_relab = log10(shotgun_relab + 0.0001),
+         s16S_relab = log10(s16S_relab + 0.0001))
   
 ```
 
@@ -93,12 +96,15 @@ Two <- two %>%
 ```{r}
 Two %>% 
   ggplot(aes(x = shotgun_relab, y = s16S_relab, col = phylum)) +
-    geom_point() +
-    facet_wrap(~sampleid) +
+  geom_point() +
+  facet_wrap(~sampleid) +
+  geom_abline(intercept = 0, slope = 1, col = 'red', linetype = 'dashed') +
+  geom_vline(xintercept = 0, col= 'forestgreen', linetype = 'dashed') +
+  geom_hline(yintercept = 0, col= 'forestgreen', linetype = 'dashed') +
   scale_color_manual(values = brewer.pal(n = length(ol_phylum), name = "Dark2")) +
-  labs(x = 'Shotgun data',
-       y = '16S data',
-       title = 'Relative abundance comparison between shotgun and 16S data\nat phylum level') +
+  labs(x = 'log10(Shotgun data)',
+       y = 'log10(16S data)',
+       title = 'log10 transformed relative abundance comparison between shotgun and 16S data\nat phylum level') +
   ggsave('../figs/correlation/cor_between_16_and_shotgun.jpg', width = 10, height = 10, dpi = 300)
 
  
@@ -114,7 +120,7 @@ spearman_cor <- Two %>%
 
 spearman_cor %>% 
   kable(caption = 'Spearman correlation at phylum level') %>% 
-  kable_styling(full_width = T, position = 'left')
+  kable_styling(full_width = F, position = 'left')
 
 
 spearman_cor %>% 
