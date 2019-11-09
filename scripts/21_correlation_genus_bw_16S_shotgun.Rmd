@@ -100,7 +100,7 @@ Two %>%
   ggplot(aes(x = shotgun_relab, y = s16S_relab)) +
     geom_point() +
     facet_wrap(~sampleid) +
-  geom_abline(intercept = 0, slope = 1, col = 'red', linetype = 'dashed') +
+  geom_abline(intercept = 0, slope = 1, col = 'pink', linetype = 'dashed') +
   geom_vline(xintercept = 0, col= 'forestgreen', linetype = 'dashed') +
   geom_hline(yintercept = 0, col= 'forestgreen', linetype = 'dashed') +
   labs(x = 'log10(Shotgun data)',
@@ -115,7 +115,7 @@ Two %>%
   filter(sampleid == '275G') %>% 
   ggplot(aes(x = shotgun_relab, y = s16S_relab)) +
     geom_point() +
-    geom_abline(intercept = 0, slope = 1, col = 'red', linetype = 'dashed') +
+    geom_abline(intercept = 0, slope = 1, col = 'pink', linetype = 'dashed') +
     geom_vline(xintercept = 0, col= 'forestgreen', linetype = 'dashed') +
     geom_hline(yintercept = 0, col= 'forestgreen', linetype = 'dashed') +
     labs(x = 'log10(Shotgun data)',
@@ -154,6 +154,19 @@ py_cor %>%
   ggboxplot(x = 'Group', y = 'Cor',  title = 'Comparison of spearman correlation') +
   stat_compare_means() +
   ggsave('../figs/pylum_genus_correlation.jpg')
+```
+
+```{bash}
+# create the shotgun table for the class order and family level
+2
+```
+
+
+
+```{r}
+compare_each_taxa_level <- function(){
+  
+}
 ```
 
 

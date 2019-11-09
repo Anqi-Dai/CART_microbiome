@@ -96,15 +96,16 @@ Two <- two %>%
 ```{r}
 Two %>% 
   ggplot(aes(x = shotgun_relab, y = s16S_relab, col = phylum)) +
-  geom_point() +
+  geom_point(size = 3) +
   facet_wrap(~sampleid) +
-  geom_abline(intercept = 0, slope = 1, col = 'red', linetype = 'dashed') +
-  geom_vline(xintercept = 0, col= 'forestgreen', linetype = 'dashed') +
-  geom_hline(yintercept = 0, col= 'forestgreen', linetype = 'dashed') +
+  geom_abline(intercept = 0, slope = 1, col = 'pink', linetype = 'dashed') +
+  geom_vline(xintercept = 0, col= 'lightgreen', linetype = 'dashed') +
+  geom_hline(yintercept = 0, col= 'lightgreen', linetype = 'dashed') +
   scale_color_manual(values = brewer.pal(n = length(ol_phylum), name = "Dark2")) +
   labs(x = 'log10(Shotgun data)',
        y = 'log10(16S data)',
        title = 'log10 transformed relative abundance comparison between shotgun and 16S data\nat phylum level') +
+  theme_light()+
   ggsave('../figs/correlation/cor_between_16_and_shotgun.jpg', width = 10, height = 10, dpi = 300)
 
  
