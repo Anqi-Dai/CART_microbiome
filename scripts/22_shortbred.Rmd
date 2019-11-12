@@ -1,0 +1,27 @@
+---
+title: "Shortbred results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(kableExtra)
+library(ggpubr)
+```
+
+```{r}
+# create symlinks for the fastq files to work in the quant step
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')  %>% 
+  select(Sampleid)  %>% 
+  mutate(fastq = str_glue('{Sampleid}.fastq'),
+         idx = seq(1, nrow(.)),
+         idx_fn = str_glue('WGS_{idx}.fastq'),
+         cmd = str_glue('ln -s /home/daia1/my_workdir/samples/melody/{fastq} /home/daia1/my_workdir/samples/melody/{idx_fn}'))
+
+
+pheno %>% 
+  select(cmd) %>% 
+  write_tsv('../scripts/link_wgs_fastq.sh', col_names = F)
+```
+
