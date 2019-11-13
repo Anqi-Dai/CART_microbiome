@@ -126,11 +126,21 @@ spearman_cor %>%
 
 spearman_cor %>% 
   write_csv('../data/spearman_cor_phylum.csv')
+
+pearson_cor <- Two %>% 
+  split(.$sampleid) %>% 
+  map_dfr(~ round(cor.test(.$shotgun_relab, 
+                           .$s16S_relab, 
+                           method = 'pearson', 
+                           exact = F)$estimate, 2)) %>% 
+  gather(key = 'sampleid', value = 'cor') %>% 
+  arrange(cor)  
+ 
+pearson_cor %>% 
+  write_csv('../data/pearson_cor_phylum.csv')
 ```
 
 
 
-```{r}
 
-```
 

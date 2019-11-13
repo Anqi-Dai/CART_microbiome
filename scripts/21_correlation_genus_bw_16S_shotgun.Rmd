@@ -139,6 +139,16 @@ spearman_cor <- Two %>%
 spearman_cor %>% 
   kable(caption = 'Spearman correlation at genus level') %>% 
   kable_styling(full_width = F, position = 'left')
+
+
+pearson_cor <- Two %>% 
+  split(.$sampleid) %>% 
+  map_dfr(~ round(cor.test(.$shotgun_relab, 
+                           .$s16S_relab, 
+                           method = 'pearson', 
+                           exact = F)$estimate, 2)) %>% 
+  gather(key = 'sampleid', value = 'cor') %>% 
+  arrange(cor)  
   
 ```
  
@@ -154,19 +164,21 @@ py_cor %>%
   ggboxplot(x = 'Group', y = 'Cor',  title = 'Comparison of spearman correlation') +
   stat_compare_means() +
   ggsave('../figs/pylum_genus_correlation.jpg')
+
+
+
 ```
-
-```{bash}
-# create the shotgun table for the class order and family level
-2
-```
-
-
 
 ```{r}
-compare_each_taxa_level <- function(){
-  
-}
-```
+py_cor <- read_csv('../data/pearson_cor_phylum.csv') %>% 
+  rename(pylum = cor)
 
+py_cor %>% 
+  full_join(pearson_cor %>% 
+              rename(genus = cor), by = 'sampleid') %>% 
+  gather(key = 'Group', value = 'Cor', names(.)[2]: names(.)[ncol(.)]) %>% 
+  ggboxplot(x = 'Group', y = 'Cor',  title = 'Comparison of Pearson correlation') +
+  stat_compare_means() +
+  ggsave('../figs/pylum_genus_correlation_pearson.jpg')
+```
 
