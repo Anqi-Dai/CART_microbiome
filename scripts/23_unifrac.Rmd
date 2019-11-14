@@ -1,0 +1,34 @@
+---
+title: "Unifrac tree"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(seqinr)
+source('~/MSK/work/microbiome_db/SQL/scripts/get_data_from_query_OTU.R')
+```
+
+```{r}
+# load the table
+annot <- get_data_from_query_OTU(0,'asv_annotation_blast_ag')  
+seqs <- get_data_from_query_OTU(0,'asv_sequences_ag') 
+```
+
+```{r}
+# create fasta file and write out to disk which will do the msa later
+res <- apply(seqs, 1, function(Row){
+  write.fasta(sequences = as.list(Row[['asv_sequence']]), 
+              names = Row[['key']],
+              file.out = str_glue('../output/ASV_fa/{Row[["key"]]}_ASV_seq.fa'))
+})
+
+# should be a fasta file with 80,000 sequences 
+```
+
+
+```{bash}
+# do the msa
+```
+
