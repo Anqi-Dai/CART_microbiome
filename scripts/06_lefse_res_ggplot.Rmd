@@ -81,8 +81,8 @@ CR <- feature %>%
   ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
             geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
             coord_flip() +
-            scale_color_manual(values = c('#42B440', '#EC0000'))  +
-            scale_fill_manual(values = c('#42B440', '#EC0000')) +
+            scale_color_manual(values = c('#ED0000', '#00468B'))  +
+            scale_fill_manual(values = c('#ED0000', '#00468B')) +
             theme_minimal() +
             theme(axis.title.y  = element_blank(), 
                   legend.position="bottom") +
@@ -96,8 +96,8 @@ tox <- feature %>%
   ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
             geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
             coord_flip() +
-            scale_color_manual(values = c('#42B440', '#EC0000'))  +
-            scale_fill_manual(values = c('#42B440', '#EC0000')) +
+            scale_color_manual(values = c('#0099B4', '#AD002A'))  +
+            scale_fill_manual(values = c('#0099B4', '#AD002A')) +
             theme_minimal() +
             theme(axis.title.y  = element_blank(), 
                   legend.position="bottom") +
