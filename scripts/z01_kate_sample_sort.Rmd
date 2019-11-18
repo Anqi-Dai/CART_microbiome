@@ -1,0 +1,90 @@
+---
+title: "Kate chronic samples"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+source('~/MSK/work/microbiome_db/SQL/scripts/get_data_from_query_OTU.R')
+```
+
+```{r}
+chronic <- get_data_from_query_OTU(0,'frozen_set_cgvhd_ag')
+```
+
+```{r}
+# We care about 3 time periods:
+# PreHCT: (day_relative_to_hct >= -30 & day_relative_to_hct <= -6)
+# PeriHCT: (day_relative_to_hct >= 7 & day_relative_to_hct <= 21)
+# PeriD100: (day_relative_to_hct >= 70 & day_relative_to_hct <= 130)
+# 
+# We selected only one sample per patient. In case of multiple samples for the same patient, we selected the first baseline sample for PreHCT (closest to day –30) 
+# or the sample closest to day 14 or day 100 in case of PeriHCT and PeriD100.
+
+period_list <- chronic %>% 
+  select(patient_id, sampleid, case_status, day_relative_to_hct) %>% 
+  mutate(period = case_when(
+    day_relative_to_hct >= -30 & day_relative_to_hct <= -6 ~ 'PreHCT',
+    day_relative_to_hct >= 7 & day_relative_to_hct <= 21 ~ 'PeriHCT',
+    day_relative_to_hct >= 70 & day_relative_to_hct <= 130 ~ 'PeriD100'
+  )) %>% 
+  # keep the records that are in the above periods
+  filter(!is.na(period)) %>% 
+  split(.$period)
+
+# now get the time difference between the actual time and the ideal date we emphasize on
+period_diff <- bind_rows(
+  period_list %>% 
+    pluck('PreHCT') %>% 
+    mutate(tdiff = abs(day_relative_to_hct - (-30))),
+  period_list %>% 
+    pluck('PeriHCT') %>% 
+    mutate(tdiff = abs(day_relative_to_hct - (14))),
+  period_list %>% 
+    pluck('PeriD100') %>% 
+    mutate(tdiff = abs(day_relative_to_hct - (100)))
+)
+
+# target samples
+target <- period_diff %>% 
+  group_by(patient_id, period) %>% 
+  arrange(tdiff, .by_group = T) %>% 
+  slice(1)  %>% 
+  arrange(period, tdiff, sampleid)
+  
+# how many unique patients
+period_diff %>% 
+   group_by(patient_id) %>% 
+   summarise(cnt = n())
+```
+
+```{r}
+# how many we actually have shotgun
+catalog <- read_csv('/Volumes/vandenBrinkLab/Angel_Dai/Full_human_shotgun_catalog/full_human_shotgun_catalog_updated.csv')
+
+target_have <- target %>% 
+  inner_join(catalog, by = 'sampleid') %>% 
+  # only looking at the PeriD100 time
+  filter(period == 'PeriD100')
+
+
+current <- read_csv('~/projects/MSS_pipeline-/output/current_240_sample_preprocessing_stats.csv') 
+
+# how many we actually have 
+length(intersect(current$sampleid, target_have$sampleid))
+
+target_have %>% 
+  group_by(period, case_status) %>% 
+  summarise(cnt = n())
+
+# how many need to be uploaded (35)
+target_have %>% 
+  filter(!sampleid %in% current$sampleid) %>% 
+  select(directory) %>% 
+  mutate(cmd = str_glue('rsync --progress --partial -avz {directory} daia1@lilac.mskcc.org:~/my_workdir/samples/kate')) %>% 
+  ungroup() %>%
+  select(cmd) %>%  
+  write_csv('../data/upload_kate_70.sh', col_names = F)
+```
+
