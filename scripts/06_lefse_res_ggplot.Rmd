@@ -11,15 +11,15 @@ library(cowplot)
 library(ggpubr)
 ```
 
-Replot the lefse plots with ggplot2 (with each class + subclass combi)
+Replot the lefse plots with ggplot2 (lefse with only class )
 
 ## Combine and clean the res table from lefse
 
 ```{r}
 # the input : lefse res files
-fns <- list.files('../data/lefse_input/', pattern = 'pathway_abundace_pheno__[CR|Toxicity].+res$', full.names = T)
+fns <- list.files('../data/lefse_input/', pattern = 'pathway_.+res$', full.names = T)
 
-fns_name <- list.files('../data/lefse_input/', pattern = 'pathway_abundace_pheno__[CR|Toxicity].+res$')
+fns_name <- list.files('../data/lefse_input/', pattern = 'pathway_.+res$')
 
 # join all of the tables feature together
 feature <- fns %>% 
@@ -29,7 +29,6 @@ feature <- fns %>%
   bind_rows(.id = 'group') %>% 
   mutate(group = str_replace(group, 'pathway_abundace_pheno__','')) %>% 
   mutate(group = str_replace(group, '.res$','')) %>% 
-  mutate(pathway = str_replace_all(pathway, '^f_','')) %>% 
   select(-xx, -pval)
 
 # change the "N" direction to be minus score
@@ -40,7 +39,7 @@ feature <- bind_rows(
     mutate(score = -score),
   feature %>% 
     split(.$direction) %>% 
-    pluck('Y') 
+    pluck('Y')  
 ) %>% 
   arrange(group, pathway, score)
 ```
@@ -57,57 +56,58 @@ feature  %>%
 
 Each combi per figure
 
-```{r}
-feature %>% 
-  filter(str_detect(group, pattern = 'Disease_Class$')) %>% 
-  split(.$group) %>% 
-  map(~  ggplot(data = ., aes(x = reorder(pathway, score), y = score, fill = direction)) +
-            geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
-            coord_flip() +
-            scale_color_manual(values = c('#00468B', '#EC0000'))  +
-            scale_fill_manual(values = c('#00468B', '#EC0000')) +
-            theme_minimal() +
-            theme(axis.title.y  = element_blank(), 
-                  legend.position="bottom") +
-            labs(title = str_glue('Response to class') ,
-                 y = 'Score')+ 
-            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to class {.$group}.pdf'), device = 'pdf', width = 15, dpi = 300))
- 
-```
 
 ```{r}
+all_title_fs <- 20
+axis_text_fs <- 16
+
 CR <- feature %>% 
-  filter(group == 'CR__Disease_Class') %>% 
+  filter(group == 'CR') %>% 
   ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
-            geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
+            geom_bar( stat = 'identity') +
             coord_flip() +
             scale_color_manual(values = c('#ED0000', '#00468B'))  +
             scale_fill_manual(values = c('#ED0000', '#00468B')) +
-            theme_minimal() +
+            theme_classic() +
             theme(axis.title.y  = element_blank(), 
-                  legend.position="bottom") +
-            labs(title = str_glue('Response to Complete Response') ,
+                  plot.title = element_text(size=all_title_fs),
+                  axis.title.x = element_text(size=axis_text_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position='bottom') +
+            labs(title = str_glue('Response to CR') ,
                  y = 'Score')+ 
-            ylim(-4,4) +
-            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to CR.jpg'),  width = 12, dpi = 300 )
+            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to CR.pdf'),  width = 12, device = 'pdf' )
 
 tox <- feature %>% 
-  filter(group == 'Toxicity__Disease_Class') %>% 
+  filter(group == 'Toxicity') %>% 
   ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
-            geom_bar(position = position_dodge2(preserve = "single"), stat = 'identity') +
+            geom_bar(stat = 'identity') +
             coord_flip() +
             scale_color_manual(values = c('#0099B4', '#AD002A'))  +
             scale_fill_manual(values = c('#0099B4', '#AD002A')) +
-            theme_minimal() +
+            theme_classic() +
             theme(axis.title.y  = element_blank(), 
+                  axis.title.x = element_text(size=axis_text_fs),
+                  plot.title = element_text(size=all_title_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
                   legend.position="bottom") +
             labs(title = str_glue('Response to Toxicity') ,
                  y = 'Score')+ 
-            ylim(-4,4) +
-            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to tox.jpg'),  width = 12, dpi = 300, height = 3.5)
+            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/Response to tox.pdf'), device = 'pdf', width = 12)
 
 
 ```
+
+
+```{r}
+# stack the above two plots vertically
+g <- plot_grid(CR,tox,  
+          nrow = 2, 
+          align = 'hv',
+          axis = 'b')  +
+  ggsave('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/humann2_shotgun/figs/lefse_results_ggplot_recreate/pathway_lefse_combined.pdf', device = 'pdf', height = 15, width = 15)
+```
+
 
 
 

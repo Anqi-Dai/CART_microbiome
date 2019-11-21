@@ -84,7 +84,7 @@ pheno_combi %>%
 pheno_combi %>% 
   mutate(input_tsv = str_glue('../data/lefse_input/pathway_abundace_{combi}tsv'),
          fmt_input = str_replace(input_tsv, 'tsv','in'),
-         fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -s 2 -u 3 -o 1000000')) %>% 
+         fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1  -u 2 -o 1000000')) %>% 
   select(fmt_cmd) %>% 
   write_csv('format_input_CT.sh', col_names = F)
 ```
