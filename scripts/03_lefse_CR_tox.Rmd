@@ -46,9 +46,7 @@ apply(combi, 1, function(row) {
 # input: relative abundance unstratified for pathway abundance
 relab <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
   rename(sampleid = names(.)[1]) %>% 
-  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
-  # remove the unmapped and the unintegrated record
-  filter(!sampleid %in% c('UNMAPPED','UNINTEGRATED'))
+  rename_all(funs(str_replace(., '_Abundance$',''))) 
 
 # see if the sampleid in the relab is clean(do I need to clean additionally)
 all.equal(sort(pheno$Sampleid), sort(colnames(relab)[2:ncol(relab)])) 

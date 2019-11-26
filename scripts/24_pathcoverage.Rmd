@@ -1,0 +1,14 @@
+---
+title: "pathway coverage"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r}
+pwc <- read_tsv('~/melodyP/data/humann2_res/humann2_final_out/humann2_pathcoverage_unstratified.tsv')
+```
+

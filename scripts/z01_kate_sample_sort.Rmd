@@ -10,6 +10,8 @@ library(ggvenn)
 source('~/MSK/work/microbiome_db/SQL/scripts/get_data_from_query_OTU.R')
 ```
 
+### Select the target samples that go into this comparison  
+
 **So the key is that first you filter on the samples that have shotgun data!!!! **
 **And then select the ones that are the closest !!! so that you don't waste any shotgun data!!!!!**
 
@@ -77,17 +79,42 @@ current <- read_csv('~/projects/MSS_pipeline-/output/current_240_sample_preproce
 # how many we actually have 
 length(intersect(target$sampleid, current$sampleid))
 
-target_have %>% 
-  group_by(period, case_status) %>% 
-  summarise(cnt = n())
 
-# how many need to be uploaded (35)
+# how many need to be uploaded 
 target %>% 
   filter(!sampleid %in% current$sampleid) %>% 
   select(directory) %>% 
   mutate(cmd = str_glue('rsync --progress --partial -avz {directory} daia1@lilac.mskcc.org:~/my_workdir/samples/kate')) %>% 
   ungroup() %>%
-  select(cmd) %>%  
+  select(cmd) %>%   
   write_csv('../data/upload_kate_43.sh', col_names = F)
+```
+
+### Create the pheno table and make sure the input two tables are correctly sorted
+
+```{r}
+pheno <- target  %>% 
+  ungroup %>% 
+  mutate(fid = str_extract(directory, 'Sample.+IGO'),
+         fid = str_replace(fid, 'Sample_',''),
+         fid = str_replace(fid, '_IGO',''))  %>% 
+  select(sampleid, case_status, fid) 
+
+# the cts table 
+cts <- read_tsv('../data/kate/pwabun/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
+  rename(sampleid = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) 
+cts <- bind_cols(cts[,1],cts[,pheno$fid])
+
+
+cts %>% 
+  write_tsv('../data/kate/input_lefse_cts.tsv')
+
+
+pheno_col <- pheno %>% 
+  select(case_status) %>% 
+  t %>% 
+  write.table('../data/kate/input_lefse_pheno.txt', sep = '\t', quote = F, row.names = T, col.names = F)
+ 
 ```
 
