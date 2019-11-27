@@ -14,6 +14,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 library(tidyverse)
 library(kableExtra)
+library(pheatmap)
 ```
 
 ```{r}
@@ -51,6 +52,12 @@ pwc %>%
   select(-pwid) %>% 
   kable(caption = 'Look at the table of pathway coverage in each sample') %>% 
   kable_styling()
+
+
+pwc_wide <-   pwc %>% 
+  filter(pwid %in% sig$pwid) %>% 
+  select(-pwid) %>% 
+  column_to_rownames('pw')
 ```
 
 ```{r out.width='120%'}
@@ -106,5 +113,22 @@ pwc_sig_cr %>%
   labs(title = str_glue('Response to CR') ,
        y = 'Median coverage in each group') + 
   ggsave('../figs/path_coverage_CR.jpg', width = 15, height = 8, dpi = 300)
+```
+
+
+```{r}
+# try to do a heatmap to see if there is some sample that is interesting to look at 
+pheatmap(
+  pwc_wide,
+  #color=bwrPalette, 
+  #annotation_col = annot,
+  show_rownames = T,
+  show_colnames = TRUE,
+  filename = '../figs/pcov_hm.jpg',
+  height = 10,
+  width = 20,
+  cluster_rows =T,
+  cluster_cols=T
+)
 ```
 
