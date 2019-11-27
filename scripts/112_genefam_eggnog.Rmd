@@ -1,0 +1,58 @@
+---
+title: "genefam_eggnog"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(GO.db)
+```
+
+```{bash}
+# eggnog regroup
+humann2_regroup_table             --input ../data/humann2_res/humann2_genefamilies.tsv              --groups uniref90_eggnog             --output ../data/humann2_res/humann2_genefamilies_uniref90_eggnog_regroup.tsv
+# gropued 1+ more times:  ko 8%  eggnog 19.4% go 56.8%
+
+# renorm to cpm
+humann2_renorm_table  --input ../data/humann2_res/humann2_genefamilies_uniref90_eggnog_regroup.tsv -u cpm -s n --output ../data/humann2_res/humann2_genefamilies_uniref90_eggnog_regroup_cpm.tsv
+#Excluding special feature: UNGROUPED)
+
+# split table
+humann2_split_stratified_table --input ../data/humann2_res/humann2_genefamilies_uniref90_eggnog_regroup_cpm.tsv --output ../data/humann2_res/humann2_final_out
+```
+
+
+```{r}
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
+
+# reorder the cloumn names 
+source('~/pipeline/scripts/lefse/01_prepare_pheno_cts_input_table_for_lefse_run.R')
+
+cts <- read_tsv('../data/humann2_res/humann2_final_out/humann2_genefamilies_uniref90_eggnog_regroup_cpm_unstratified.tsv')
+
+cts <- prepare_lefse_input_tables(pheno, cts)
+
+cts %>% 
+  write_tsv('../data/humann2_res/humann2_final_out/humann2_genefamilies_uniref90_eggnog_regroup_cpm_unstratified_reordered.tsv')
+```
+
+```{bash}
+# now use my run lefse bash script since I have already have the pheno table out 
+mkdir ../data/humann2_res/lefse_eggnog
+
+bash ~/projects/MSS_pipeline-/scripts/lefse/run_lefse.sh \
+  ../data/lefse_input/pheno__Toxicity.txt \
+  ../data/humann2_res/humann2_final_out/humann2_genefamilies_uniref90_eggnog_regroup_cpm_unstratified_reordered.tsv \
+  ../data/humann2_res/lefse_eggnog
+  
+  
+bash ~/projects/MSS_pipeline-/scripts/lefse/run_lefse.sh \
+  ../data/lefse_input/pheno__CR.txt \
+  ../data/humann2_res/humann2_final_out/humann2_genefamilies_uniref90_eggnog_regroup_cpm_unstratified_reordered.tsv \
+  ../data/humann2_res/lefse_eggnog 
+```
+
+
+### Mapping the COG term to its name
+

@@ -71,7 +71,7 @@ pwc_sig_tox <- pwc_sig %>%
 all_title_fs <- 20
 axis_text_fs <- 16
 
-pwc_sig_tox %>% 
+tox <- pwc_sig_tox %>% 
   ggplot(aes(x = pw, y = cov_med, fill = Toxicity)) +
   geom_bar( stat = 'identity' , position="dodge") +
   coord_flip() +
@@ -98,7 +98,7 @@ pwc_sig_cr <- pwc_sig %>%
   filter(cov_med > 0)
 
 
-pwc_sig_cr %>% 
+cr <- pwc_sig_cr %>% 
   ggplot(aes(x = pw, y = cov_med, fill = CR)) +
   geom_bar( stat = 'identity' , position="dodge") +
   coord_flip() +
@@ -118,10 +118,13 @@ pwc_sig_cr %>%
 
 ```{r}
 # try to do a heatmap to see if there is some sample that is interesting to look at 
+annot <- pheno %>% 
+  column_to_rownames('sampleid')
+
 pheatmap(
   pwc_wide,
   #color=bwrPalette, 
-  #annotation_col = annot,
+  annotation_col = annot,
   show_rownames = T,
   show_colnames = TRUE,
   filename = '../figs/pcov_hm.jpg',

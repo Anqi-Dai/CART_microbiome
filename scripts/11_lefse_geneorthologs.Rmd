@@ -13,8 +13,7 @@ library(tidyverse)
 
 ```{r}
 # loading the table with the valid sampleids
-pheno <- read_csv('../data/current_pheno.csv') %>% 
-  filter(! Sampleid %in% c("1725E", "2222A" ,"2245A"))
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
 
 ```
 
@@ -36,7 +35,18 @@ apply(combi, 1, function(row) {
 })
 ```
 
-## Reorder the GO stratified table
+## Reorder the KO stratified table
+
+```{bash}
+# get the KO regrouped table
+humann2_regroup_table \
+            --input ../data/humann2_res/humann2_genefamilies.tsv  \
+            --groups uniref90_ko  \
+            --output ../data/humann2_res/humann2_genefamilies_KO_regroup.tsv
+```
+
+
+
 
 ```{r}
 stra_go <- read_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified.tsv') %>% 
