@@ -1,5 +1,5 @@
 ---
-title: ""
+title: "KO & EGGNOG"
 output: html_document
 ---
 
@@ -14,7 +14,7 @@ library(KEGGREST)
 ```{r}
 # load the lefse res of tox
 # the input : lefse res files
-fns <- list.files('../data/lefse_genefam/', pattern = 'genefam_abundace_pheno__[CR|Toxicity].+res$', full.names = T)
+fns <- list.files('../data/humann2_res/', pattern = 'genefam_abundace_pheno__[CR|Toxicity].+res$', full.names = T)
 fns_name <- list.files('../data/lefse_genefam/', pattern = 'genefam_abundace_pheno__[CR|Toxicity].+res$')
 
 # join all of the tables feature together

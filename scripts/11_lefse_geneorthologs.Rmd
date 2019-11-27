@@ -6,118 +6,52 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(GO.db)
+```
+
+```{bash}
+# ko regroup
+humann2_regroup_table             --input ../data/humann2_res/humann2_genefamilies.tsv              --groups uniref90_ko              --output ../data/humann2_res/humann2_genefamilies_KO_regroup.tsv
+# gropued 1+ more times:  ko 8%  eggnog 19.4% go 56.8%
+
+# renorm to cpm
+humann2_renorm_table  --input ../data/humann2_res/humann2_genefamilies_KO_regroup.tsv -u cpm -s n --output ../data/humann2_res/humann2_genefamilies_KO_regroup_cpm.tsv
+#Excluding special feature: UNGROUPED)
+
+# split table
+humann2_split_stratified_table --input ../data/humann2_res/humann2_genefamilies_KO_regroup_cpm.tsv --output ../data/humann2_res/humann2_final_out
 ```
 
 
-## Make pheno table(with only classes)
-
 ```{r}
-# loading the table with the valid sampleids
 pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
 
+# reorder the cloumn names 
+source('~/pipeline/scripts/lefse/01_prepare_pheno_cts_input_table_for_lefse_run.R')
+
+cts <- read_tsv('../data/humann2_res/humann2_final_out/humann2_genefamilies_KO_regroup_cpm_unstratified.tsv')
+
+cts <- prepare_lefse_input_tables(pheno, cts)
+
+cts %>% 
+  write_tsv('../data/humann2_res/humann2_final_out/humann2_genefamilies_KO_regroup_cpm_unstratified_reordered.tsv')
 ```
-
-```{r}
-# get different combination of the classes
-classes <- c('CR', 'Toxicity')
-
-#subclass <- c('Disease_Status_CAR','Disease_Class','CAR_Group')
-combi <- expand.grid(classes = classes)
-
-# use each combi row in the above df to create the pheno table for the lefse input
-apply(combi, 1, function(row) {
-  pheno %>% 
-    mutate(CR = str_glue('CR_{CR}'),
-           Toxicity = str_glue('Toxicity_{Toxicity}')) %>% 
-    select(row[['classes']]) %>% 
-    t() %>% 
-    write.table(str_glue('../data/lefse_genefam/pheno__{row[["classes"]]}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
-})
-```
-
-## Reorder the KO stratified table
 
 ```{bash}
-# get the KO regrouped table
-humann2_regroup_table \
-            --input ../data/humann2_res/humann2_genefamilies.tsv  \
-            --groups uniref90_ko  \
-            --output ../data/humann2_res/humann2_genefamilies_KO_regroup.tsv
-```
+# now use my run lefse bash script since I have already have the pheno table out 
+mkdir ../data/humann2_res/lefse_ko
+mkdir ../data/humann2_res/lefse_ko/tox
+mkdir ../data/humann2_res/lefse_ko/CR
 
-
-
-
-```{r}
-stra_go <- read_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified.tsv') %>% 
-  rename(sampleid = names(.)[1]) %>% 
-  rename_all(funs(str_replace(., '_Abundance-RPKs$',''))) %>% 
-  # remove the ungrouped since it's not really giving gene fam info
-  filter(! str_detect(sampleid, '^UNGROUPED'))
-
-stra_go <- bind_cols(stra_go[,1],stra_go[,pheno$Sampleid]) 
-
-all.equal(pheno$Sampleid, colnames(stra_go)[2:ncol(stra_go)])
- 
-# write out
- 
-stra_go %>% 
-  write_tsv('../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified_reordered.tsv')
-```
-
-## str_glue
-
-```{r}
-# create the commad in df with str_glue and then output to a bash script
-pheno_combi <- data_frame(pheno_file = list.files('../data/lefse_genefam', pattern = '.txt$', full.names = T)) %>% 
-  mutate(combi = str_extract(pheno_file, 'pheno.+\\.')) 
-
-pheno_combi %>% 
-  mutate(cat_cmd = str_glue('cat {pheno_file} ../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified_reordered.tsv > ../data/lefse_genefam/genefam_abundace_{combi}tsv')) %>% 
-  select(cat_cmd) %>% 
-  write_csv('cat_combi_genef.sh', col_names = F)
-```
-
-
-```{r}
-# create the cmd to do the format input stuff
-pheno_combi %>% 
-  mutate(input_tsv = str_glue('../data/lefse_genefam/genefam_abundace_{combi}tsv'),
-         fmt_input = str_replace(input_tsv, 'tsv','in'),
-         fmt_cmd = str_glue('format_input.py {input_tsv} {fmt_input} -c 1 -u 2 -o 1000000')) %>% 
-  select(fmt_cmd) %>% 
-  write_csv('format_input_genef.sh', col_names = F)
-```
-
-
-```{r}
-# the actual step to run lefse
-pheno_combi %>% 
-  mutate(fmt_input = str_glue('../data/lefse_genefam/genefam_abundace_{combi}in'),
-         lefse_res = str_replace(fmt_input, 'in$','res'),
-         run_cmd = str_glue('run_lefse.py {fmt_input} {lefse_res}')) %>% 
-  select(run_cmd) %>% 
-  write_csv('run_lefse_genef.sh', col_names = F)
-```
-
-
-```{r}
-# plotting cmd 
-pheno_combi %>% 
-  mutate(lefse_res = str_glue('../data/lefse_genefam/genefam_abundace_{combi}res'),
-         fea_png = str_glue('../figs/genefam_abundace_{combi}png'),
-         cmd = str_glue('plot_res.py {lefse_res}  {fea_png} --feature_font_size 4 --width 10 --dpi 300 --title {combi}')) %>% 
-  select(cmd) %>% 
-  write_csv('plotting_de_feature_genef.sh', col_names = F)
-```
-
-
-## bash
-
-```{bash}
-bash cat_combi_genef.sh
-bash format_input_genef.sh
-bash run_lefse_genef.sh
-
+bash ~/projects/MSS_pipeline-/scripts/lefse/run_lefse.sh \
+  ../data/lefse_input/pheno__Toxicity.txt \
+  ../data/humann2_res/humann2_final_out/humann2_genefamilies_KO_regroup_cpm_unstratified_reordered.tsv \
+  ../data/humann2_res/lefse_ko/tox
+  
+  
+bash ~/projects/MSS_pipeline-/scripts/lefse/run_lefse.sh \
+  ../data/lefse_input/pheno__CR.txt \
+  ../data/humann2_res/humann2_final_out/humann2_genefamilies_KO_regroup_cpm_unstratified_reordered.tsv \
+  ../data/humann2_res/lefse_ko/CR
 ```
 

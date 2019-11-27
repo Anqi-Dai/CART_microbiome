@@ -39,18 +39,19 @@ cts %>%
 
 ```{bash}
 # now use my run lefse bash script since I have already have the pheno table out 
-mkdir ../data/humann2_res/lefse_eggnog
+mkdir ../data/humann2_res/lefse_eggnog/tox
+mkdir ../data/humann2_res/lefse_eggnog/CR
 
 bash ~/projects/MSS_pipeline-/scripts/lefse/run_lefse.sh \
   ../data/lefse_input/pheno__Toxicity.txt \
   ../data/humann2_res/humann2_final_out/humann2_genefamilies_uniref90_eggnog_regroup_cpm_unstratified_reordered.tsv \
-  ../data/humann2_res/lefse_eggnog
+  ../data/humann2_res/lefse_eggnog/tox
   
   
 bash ~/projects/MSS_pipeline-/scripts/lefse/run_lefse.sh \
   ../data/lefse_input/pheno__CR.txt \
   ../data/humann2_res/humann2_final_out/humann2_genefamilies_uniref90_eggnog_regroup_cpm_unstratified_reordered.tsv \
-  ../data/humann2_res/lefse_eggnog 
+  ../data/humann2_res/lefse_eggnog/CR
 ```
 
 
