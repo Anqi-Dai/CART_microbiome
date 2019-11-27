@@ -1,14 +1,110 @@
 ---
 title: "pathway coverage"
-output: html_document
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 library(tidyverse)
+library(kableExtra)
 ```
 
 ```{r}
-pwc <- read_tsv('~/melodyP/data/humann2_res/humann2_final_out/humann2_pathcoverage_unstratified.tsv')
+pwc <- read_tsv('~/melodyP/data/humann2_res/humann2_final_out/humann2_pathcoverage_unstratified.tsv') %>% 
+  rename(pw = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_Coverage$',''))) %>% 
+  # create a new column just to be pwid 
+  mutate(pwid = str_extract(pw, '^.+:')) %>% 
+  mutate(pwid = str_replace(pwid, ':',''))
+
+# the pheno info
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  select(sampleid = Sampleid, 
+         Toxicity,
+         CR)
+```
+
+```{r}
+# get the sig pathways in Melodys project to those two outcomes
+sig <- read_csv('../data/unique_sig_pathway.csv') %>% 
+  # extract the pw id part
+  mutate(pwid = str_extract(pathway, '^.+_PWY|^PWY.+\\d{3,4}'))  %>% 
+  mutate(pwid = str_replace_all(pwid, '_', '-')) 
+
+# subset the pwc to be the sig ones only
+pwc_sig <- pwc %>% 
+  filter(pwid %in% sig$pwid) %>% 
+  select(-pwid) %>% 
+  gather(key = 'sampleid', value = 'cov', names(.)[2]:names(.)[ncol(.)]) %>% 
+  left_join(pheno, by  = 'sampleid')
+
+  
+pwc %>% 
+  filter(pwid %in% sig$pwid) %>% 
+  select(-pwid) %>% 
+  kable(caption = 'Look at the table of pathway coverage in each sample') %>% 
+  kable_styling()
+```
+
+```{r out.width='120%'}
+pwc_sig_tox <- pwc_sig %>% 
+  group_by(pw, Toxicity) %>% 
+  summarise(cov_med = median(cov)) %>% 
+  arrange(desc(cov_med)) %>% 
+  filter(cov_med > 0)
+
+
+all_title_fs <- 20
+axis_text_fs <- 16
+
+pwc_sig_tox %>% 
+  ggplot(aes(x = pw, y = cov_med, fill = Toxicity)) +
+  geom_bar( stat = 'identity' , position="dodge") +
+  coord_flip() +
+  scale_color_manual(values = c('#0099B4', '#AD002A'))  +
+  scale_fill_manual(values = c('#0099B4', '#AD002A')) +
+  theme_classic() +
+  theme(axis.title.y  = element_blank(), 
+        axis.title.x = element_text(size=axis_text_fs),
+        plot.title = element_text(size=all_title_fs),
+        axis.text.x = element_text(size=axis_text_fs),
+        legend.position="bottom") +
+  labs(title = str_glue('Response to Toxicity') ,
+       y = 'Median coverage in each group') + 
+  ggsave('../figs/path_coverage_tox.jpg', width = 15, height = 8, dpi = 300)
+
+```
+
+```{r out.width='120%'}
+  
+pwc_sig_cr <- pwc_sig %>% 
+  group_by(pw, CR) %>% 
+  summarise(cov_med = median(cov)) %>% 
+  arrange(desc(cov_med)) %>% 
+  filter(cov_med > 0)
+
+
+pwc_sig_cr %>% 
+  ggplot(aes(x = pw, y = cov_med, fill = CR)) +
+  geom_bar( stat = 'identity' , position="dodge") +
+  coord_flip() +
+  scale_color_manual(values = c('#ED0000', '#00468B'))  +
+  scale_fill_manual(values = c('#ED0000', '#00468B')) +
+  theme_classic() +
+  theme(axis.title.y  = element_blank(), 
+        axis.title.x = element_text(size=axis_text_fs),
+        plot.title = element_text(size=all_title_fs),
+        axis.text.x = element_text(size=axis_text_fs),
+        legend.position="bottom") +
+  labs(title = str_glue('Response to CR') ,
+       y = 'Median coverage in each group') + 
+  ggsave('../figs/path_coverage_CR.jpg', width = 15, height = 8, dpi = 300)
 ```
 

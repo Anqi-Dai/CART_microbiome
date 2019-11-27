@@ -47,7 +47,7 @@ feature <- bind_rows(
 ```{r}
 # output the sig unique pathway from the above table for later use in the bar plot
 feature  %>% 
-  distinct(pathway) %>% 
+  distinct(pathway, .keep_all = T) %>% 
   write_csv('../data/unique_sig_pathway.csv')
 ```
 
