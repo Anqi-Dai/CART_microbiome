@@ -1,0 +1,24 @@
+---
+title: "Two patient follow up"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+```{r}
+target <- read_csv('/Volumes/vandenBrinkLab/Angel_Dai/Full_human_shotgun_catalog/full_human_shotgun_catalog_updated.csv') %>% 
+  # the patient 1487 and 2050
+  filter(str_detect(sampleid, '1487|2050')) %>% 
+  filter(!str_detect(directory, 'A_IGO')) 
+
+target %>% 
+  dplyr::select(directory) %>% 
+  mutate(cmd = str_glue('rsync --progress --partial -avz {directory} daia1@lilac.mskcc.org:~/my_workdir/samples/melody')) %>% 
+  dplyr::select(cmd) %>%   
+  write_csv('../data/upload_M_5.sh', col_names = F)
+```
+
