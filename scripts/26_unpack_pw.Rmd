@@ -1,0 +1,28 @@
+---
+title: "Find gene fam contribution to pw"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{bash}
+# renorm the gene family table
+humann2_renorm_table  --input humann2_genefamilies.tsv -u cpm -s n --output humann2_genefamilies_cpm.tsv
+
+# unpack the pw using humann2 script
+humann2_unpack_pathways --input-genes humann2_genefamilies_cpm.tsv --input-pathways humann2_pathabundance_cpm.tsv \
+  --remove-taxonomy --output humann2_pwa_unpacked.tsv 
+```
+
+```{r}
+# look at the results
+unpacked <- read_tsv('../data/humann2_res/humann2_pwa_unpacked.tsv', skip = 1, col_names = c('pw','cpm'))
+
+# the pantothenate (PWY-4242)
+vb5 <- unpacked %>% 
+  filter(str_detect(pw, '4242'))
+```
+
