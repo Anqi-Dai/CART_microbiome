@@ -1,0 +1,29 @@
+---
+title: "maASlin2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(Maaslin2)
+```
+
+
+```{r}
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv', col_types = 'ccffffff') %>% 
+  select(-Censor_reason, -CAR_Group) %>% 
+  column_to_rownames('Sampleid') 
+
+pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
+  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  rename(pw = names(.)[1])  %>% 
+  column_to_rownames('pw') %>% 
+  as.matrix() %>% 
+  t() %>% 
+  as.data.frame()
+
+fit_data <- Maaslin2(
+    pw, pheno, '../data/maASlin2/output',normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = F,
+    standardize = FALSE)
+```
+
