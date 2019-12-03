@@ -6,6 +6,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(ggpubr)
 ```
 
 ```{bash}
@@ -22,7 +23,45 @@ humann2_unpack_pathways --input-genes humann2_genefamilies_cpm.tsv --input-pathw
 unpacked <- read_tsv('../data/humann2_res/humann2_pwa_unpacked.tsv', skip = 1, col_names = c('pw','cpm'))
 
 # the pantothenate (PWY-4242)
+
+
+# get the top N results
+N <- 20
+
+
 vb5 <- unpacked %>% 
-  filter(str_detect(pw, '4242'))
+  filter(str_detect(pw, '4242')) %>% 
+  filter(str_detect(pw, '\\|')) %>% 
+  arrange(desc(cpm)) %>% 
+  separate(pw, into = c('name','uniref90_ID'), '\\|') %>% 
+  top_n(N)
+
+vb5 %>% 
+  ggbarplot(x = 'uniref90_ID', y = 'cpm', color = 'white', fill = 'forestgreen', title = 'PWY-4242')  +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggsave('../figs/unpack/PWY-4242.jpg', width = 8, height = 7, dpi = 300)
+ 
+# COA 
+unpacked %>% 
+  filter(str_detect(pw, 'COA-PWY\\|')) %>% 
+  filter(str_detect(pw, '\\|')) %>% 
+  arrange(desc(cpm)) %>% 
+  separate(pw, into = c('name','uniref90_ID'), '\\|') %>% 
+  top_n(N) %>% 
+  ggbarplot(x = 'uniref90_ID', y = 'cpm', color = 'white', fill = 'forestgreen', title = 'COA-PWY')  +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggsave('../figs/unpack/COA-PWY.jpg', width = 8, height = 7, dpi = 300)
+
+
+# PANTOSYN-PWY
+unpacked %>% 
+  filter(str_detect(pw, 'PANTOSYN-PWY\\|')) %>% 
+  filter(str_detect(pw, '\\|')) %>% 
+  arrange(desc(cpm)) %>% 
+  separate(pw, into = c('name','uniref90_ID'), '\\|') %>% 
+  top_n(N) %>% 
+  ggbarplot(x = 'uniref90_ID', y = 'cpm', color = 'white', fill = 'forestgreen', title = 'PANTOSYN-PWY')  +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggsave('../figs/unpack/PANTOSYN-PWY.jpg', width = 8, height = 7, dpi = 300)
 ```
 

@@ -23,7 +23,7 @@ pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_
   as.data.frame()
 
 fit_data <- Maaslin2(
-    pw, pheno, '../data/maASlin2/output',normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = F,
+    pw, pheno, '../data/maASlin2/output', normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = F,
     standardize = FALSE)
 ```
 
