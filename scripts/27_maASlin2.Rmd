@@ -5,10 +5,18 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(Maaslin2)
+library(Maaslin2) 
+library(eeptools)
+library(tidyverse)
 ```
 
 ```{r}
+# get the MRN of my target samples 
+link <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 11252019 wo Censor .xlsx',
+                    sheet = 4) %>% 
+  dplyr::select(pt_id, MRN)
+
+
 # format the whole table column and keep the samples in the final cohort 33
 have_sg <- read_csv('../data/baselinesforAngel10032019.csv') %>% 
   filter(shotgun_YN == 'yes') %>% 
@@ -17,50 +25,136 @@ have_sg <- read_csv('../data/baselinesforAngel10032019.csv') %>%
   ### FUCK THIS TABLE OF ../data/baselinesforAngel10032019.csv IS WRONG IN 161, it didn’t pass QC because not enough DNA material was present. SO WE DON'T HAVE THE SHOTGUN DATA.
   filter(!sample_id %in% c('161'))
 
+# now I have MRN in the below tble
 phe_M <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 11252019 wo Censor .xlsx',
                     sheet = 5) %>% 
   rename_all(funs(str_replace_all(., ' \\(.+$','') %>% 
-    str_replace_all(., ' ','_') %>% 
-    str_replace(., ':|-','_'))) %>% 
+  str_replace_all(., ' ','_') %>% 
+  str_replace(., ':|-','_'))) %>% 
   filter(is.na(Censor_reason)) %>% 
-  filter(Baseline_Sample_ID %in% have_sg$sample_id)
+  filter(Baseline_Sample_ID %in% have_sg$sample_id) %>% 
+  left_join(link, by = 'pt_id')
 
-```
 
-```{r}
+# sub selecting the vars I'm interested in 
 pheno <- phe_M %>% 
-  dplyr::select(sampleid = Baseline_Sample_ID,
+  dplyr::select(MRN,
+                sampleid = Baseline_Sample_ID,
                 CR, 
                 ORR, 
                 Toxicity, 
                 Cytokine_Release_Syndrome,
                 ICANS,
                 Antibiotics_4_weeks_prior_to_CAR_T_cells,
-                Antibiotics_4_weeks_post_CAR_T_cells,
+                #Antibiotics_4_weeks_post_CAR_T_cells,
                 Disease_Class,
                 Key__Patient_Disease_Status_at_CAR
-                ) %>% 
-  # change all the pheno vars to factors
-  mutate_if(is.character, as.factor) %>% 
-  column_to_rownames('sampleid') 
+                )
+```
+
+```{r}
+# get the clinical data info  from ying pulled data
+load('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/YingRCode/ctc_melody.RData')
+```
+
+```{r}
+# get the specifically the three ILs, ferriton and crp
+
+IL_table <- ctc.interleukin %>% 
+  # remove that one record that has serum in subtest_name
+  filter(!str_detect(subtest_name, 'Serum')) %>% 
+  # format the 1,000 such value to remove the comma
+  mutate(result_text = str_replace(result_text, ',',''),
+         result_text = if_else(str_detect(result_text, '^<'), '0', result_text)) %>% 
+  mutate(result_text = as.numeric(result_text)) %>% 
+  group_by(MRN, subtest_name) %>% 
+  summarise(IL =  max(result_text)) %>% 
+  mutate(subtest_name = str_replace(subtest_name, 'Interleukin','IL'),
+         subtest_name= str_replace_all(subtest_name, ' ','_')) %>% 
+  spread(key = 'subtest_name' , value = 'IL')
+
+# the three ILs, select the highest value if there are multiple 
+pheno <- pheno %>% 
+  # get patient info such as age and sex (using MRN)
+  left_join(ctc.patients %>% 
+              dplyr::select(MRN, sex, dob), by = 'MRN') %>% 
+  # get the hightest ferritin value 
+  left_join(ctc.ferritin %>% 
+              dplyr::select(MRN, result_text) %>% 
+              group_by(MRN) %>% 
+              summarise(ferritin = max(result_text)), by = 'MRN') %>% 
+  left_join(ctc.crp %>% 
+              dplyr::select(MRN, result_text) %>% 
+              mutate(result_text = if_else(str_detect(result_text, '^<'), '0', result_text),
+                     result_text = as.numeric(result_text)) %>% 
+              group_by(MRN) %>% 
+              summarise(crp  = max(result_text, na.rm = T)), by = 'MRN') %>% 
+  left_join(IL_table, by  ='MRN')
+  
+
+pheno <- pheno %>% 
+  mutate(age = round(age_calc(pheno$dob, enddate = Sys.Date(), units = "years", precise = TRUE),0)) %>% 
+  dplyr::select(-dob)
+
+  
 ```
 
 
 ```{r}
-pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv', col_types = 'ccffffff') %>% 
-  select(-Censor_reason, -CAR_Group) %>% 
-  column_to_rownames('Sampleid') 
+# now change the columns to different type: dbl or factor
+pheno_final  <- pheno %>%  
+  # change the ferritin to dbl
+  mutate(ferritin = as.numeric(ferritin),
+         Key__Patient_Disease_Status_at_CAR = as.character(Key__Patient_Disease_Status_at_CAR)) %>% 
+  # change all the pheno vars to factors
+  mutate_if(is.character, as.factor) %>% 
+  mutate(MRN = as.character(MRN),
+         sampleid = as.character(sampleid)) %>% 
+  column_to_rownames('sampleid')  
 
+
+colnames(pheno_final)
+```
+
+
+```{r}
 pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
-  rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
-  rename(pw = names(.)[1])  %>% 
+  dplyr::rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  dplyr::rename(pw = names(.)[1])  %>% 
   column_to_rownames('pw') %>% 
   as.matrix() %>% 
   t() %>% 
   as.data.frame()
 
 fit_data <- Maaslin2(
-    pw, pheno, '../data/maASlin2/output', normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = F,
+    pw, pheno_final, '../data/maASlin2/pw', normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = F,
+    fixed_effects = c(
+                      
+                      'Toxicity', 
+                      'ICANS',
+                      'Cytokine_Release_Syndrome',
+                      'Disease_Class',
+                      'Key__Patient_Disease_Status_at_CAR',
+                      'ferritin',
+                      'crp',
+                      'IL_1_beta',
+                      'IL_10',
+                      'IL_6'),
+    random_effects = c('MRN',
+                       'CR',
+                       'ORR', 
+                       'Antibiotics_4_weeks_prior_to_CAR_T_cells', 
+                       'sex',
+                       'age'
+                       ),
+    standardize = FALSE)
+
+
+fit_data <- Maaslin2(
+    pw, pheno_final, '../data/maASlin2/pw', normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = F,
+    fixed_effects = c(  'sex',
+                       'age'),
+
     standardize = FALSE)
 ```
 
