@@ -12,7 +12,7 @@ library(GO.db)
 ```{bash}
 # eggnog regroup
 humann2_regroup_table             --input ../data/humann2_res/humann2_genefamilies.tsv              --groups uniref90_eggnog             --output ../data/humann2_res/humann2_genefamilies_uniref90_eggnog_regroup.tsv
-# gropued 1+ more times:  ko 8%  eggnog 19.4% go 56.8%
+# gropued 1+ more times:  ko 8%  eggnog 19.4% go 56.8%  level4ec 9.8%
 
 # renorm to cpm
 humann2_renorm_table  --input ../data/humann2_res/humann2_genefamilies_uniref90_eggnog_regroup.tsv -u cpm -s n --output ../data/humann2_res/humann2_genefamilies_uniref90_eggnog_regroup_cpm.tsv
@@ -54,6 +54,15 @@ bash ~/projects/MSS_pipeline-/scripts/lefse/run_lefse.sh \
   ../data/humann2_res/lefse_eggnog/CR
 ```
 
+### PCoA
 
-### Mapping the COG term to its name
+```{r}
+cts <- read_tsv('../data/humann2_res/humann2_final_out/humann2_genefamilies_uniref90_eggnog_regroup_cpm_unstratified_reordered.tsv')
+
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  dplyr::rename(sampleid = Sampleid)
+
+plot_BC_PCoA(cts, pheno, 'CR')
+```
+
 

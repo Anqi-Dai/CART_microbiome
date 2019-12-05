@@ -7,6 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(GO.db)
+source('~/pipeline/scripts/Computation/BC_distance_PCoA.R')
 ```
 
 ```{bash}
@@ -21,7 +22,6 @@ humann2_renorm_table  --input ../data/humann2_res/humann2_genefamilies_uniref90_
 # split table
 humann2_split_stratified_table --input ../data/humann2_res/humann2_genefamilies_uniref90_go_cpm.tsv --output ../data/humann2_res/humann2_final_out
 ```
-
 
 ```{r}
 pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
@@ -55,4 +55,14 @@ bash ~/projects/MSS_pipeline-/scripts/lefse/run_lefse.sh \
   ../data/humann2_res/lefse_GO/CR
 ```
 
+### The PCoA of the GO regroup 
+
+```{r}
+cts <- read_tsv('../data/humann2_res/humann2_final_out/humann2_genefamilies_uniref90_go_cpm_unstratified_reordered.tsv')
+
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  dplyr::rename(sampleid = Sampleid)
+
+plot_BC_PCoA(cts, pheno, 'CR')
+```
 

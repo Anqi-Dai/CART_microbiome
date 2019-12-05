@@ -89,7 +89,15 @@ patha %>%
   
 ```
 
+### PCoA
+
 ```{r}
-load('../data/kegg_lookup_tables.RData')
+cts <- read_tsv('../data/humann2_res/humann2_final_out/humann2_genefamilies_KO_regroup_cpm_unstratified_reordered.tsv')
+
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>% 
+  dplyr::rename(sampleid = Sampleid)
+
+plot_BC_PCoA(cts, pheno, 'Toxicity')
 ```
+
 
