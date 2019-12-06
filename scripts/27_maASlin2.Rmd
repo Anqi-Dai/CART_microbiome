@@ -116,45 +116,41 @@ pheno_final  <- pheno %>%
 colnames(pheno_final)
 ```
 
-
+ 
 ```{r}
 pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
   dplyr::rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
   dplyr::rename(pw = names(.)[1])  %>% 
+  # remove the things after the : so that its easier to see on the plot(the pathway name)
+  mutate(pw = str_replace(pw, ':.+$','')) %>% 
   column_to_rownames('pw') %>% 
   as.matrix() %>% 
   t() %>% 
   as.data.frame()
-
+ 
 fit_data <- Maaslin2(
-    pw, pheno_final, '../data/maASlin2/pw', normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = F,
-    fixed_effects = c(
-                      
-                      'Toxicity', 
-                      'ICANS',
+    pw, pheno_final, '../data/maASlin2/pw', normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = T,
+    fixed_effects = c('Toxicity', 
                       'Cytokine_Release_Syndrome',
+                      'ICANS',
+                      'CR',
+                      'ORR', 
                       'Disease_Class',
                       'Key__Patient_Disease_Status_at_CAR',
+                      'Antibiotics_4_weeks_prior_to_CAR_T_cells', 
                       'ferritin',
                       'crp',
                       'IL_1_beta',
                       'IL_10',
                       'IL_6'),
-    random_effects = c('MRN',
-                       'CR',
-                       'ORR', 
-                       'Antibiotics_4_weeks_prior_to_CAR_T_cells', 
-                       'sex',
-                       'age'
-                       ),
+    # random_effects = c('MRN',
+    #                    'sex',
+    #                    'age'),
     standardize = FALSE)
 
+```
 
-fit_data <- Maaslin2(
-    pw, pheno_final, '../data/maASlin2/pw', normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = F,
-    fixed_effects = c(  'sex',
-                       'age'),
-
-    standardize = FALSE)
+```{r}
+trans <- log(pw[,'PWY-7456'] + 1)
 ```
 

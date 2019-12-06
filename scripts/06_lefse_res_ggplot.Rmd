@@ -29,7 +29,7 @@ feature <- fns %>%
   bind_rows(.id = 'group') %>% 
   mutate(group = str_replace(group, 'pathway_abundace_pheno__','')) %>% 
   mutate(group = str_replace(group, '.res$','')) %>% 
-  select(-xx, -pval)
+  dplyr::select(-xx, -pval)
 
 # change the "N" direction to be minus score
 feature <- bind_rows(
@@ -66,8 +66,8 @@ CR <- feature %>%
   ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
             geom_bar( stat = 'identity') +
             coord_flip() +
-            scale_color_manual(values = c('#ED0000', '#00468B'))  +
-            scale_fill_manual(values = c('#ED0000', '#00468B')) +
+            scale_color_manual(values = c('#925E9F', '#42B540'))  +
+            scale_fill_manual(values = c('#925E9F', '#42B540')) +
             theme_classic() +
             theme(axis.title.y  = element_blank(), 
                   plot.title = element_text(size=all_title_fs),
