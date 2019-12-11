@@ -8,6 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(Maaslin2) 
 library(eeptools)
 library(tidyverse)
+library(arrangements)
 ```
 
 ```{r}
@@ -53,6 +54,15 @@ pheno <- phe_M %>%
 ```
 
 ```{r}
+# add the lines of therapy var
+lines <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 11252019 wo Censor .xlsx',
+                    sheet = 8)  %>% 
+  rename_all(funs(str_replace_all(., ' ','_'))) %>% 
+  dplyr::select(MRN, Prior_lines_of_therapy)
+```
+
+
+```{r}
 # get the clinical data info  from ying pulled data
 load('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/YingRCode/ctc_melody.RData')
 ```
@@ -89,7 +99,8 @@ pheno <- pheno %>%
                      result_text = as.numeric(result_text)) %>% 
               group_by(MRN) %>% 
               summarise(crp  = max(result_text, na.rm = T)), by = 'MRN') %>% 
-  left_join(IL_table, by  ='MRN')
+  left_join(IL_table, by  ='MRN') %>% 
+  left_join(lines, by = 'MRN')
   
 
 pheno <- pheno %>% 
@@ -100,7 +111,7 @@ pheno <- pheno %>%
 ```
 
 
-```{r}
+```{r pheno_final}
 # now change the columns to different type: dbl or factor
 pheno_final  <- pheno %>%  
   # change the ferritin to dbl
@@ -110,14 +121,48 @@ pheno_final  <- pheno %>%
   mutate_if(is.character, as.factor) %>% 
   mutate(MRN = as.character(MRN),
          sampleid = as.character(sampleid)) %>% 
-  mutate(IL_6 = log(IL_6),
-         IL_10 = log(IL_10)) %>% 
+  #mutate(IL_6 = log(IL_6),
+  #       IL_10 = log(IL_10)) %>% 
   column_to_rownames('sampleid')  
 
 
 
 
 colnames(pheno_final)
+
+
+pheno_final %>% 
+  summary
+```
+
+```{r}
+# check the correlation between the pheno vars that are factors
+all_var <- pheno_final %>% 
+  select_if(is.factor) %>% 
+  names
+  
+  
+  
+combi <- combinations(all_var, 2) %>% 
+  as.data.frame(stringsAsFactors = F)
+
+
+
+phe_cor <- apply(combi, 1, function(Row) {
+  phe_fil = pheno_final %>% 
+    dplyr::select(Row[['V1']], Row[['V2']]) 
+  
+  round(cor.test(pheno_final[,Row[['V1']]],  pheno_final[,Row[['V2']]],method = 'spearman', 
+                           exact = F)$estimate, 2)
+  #chisq.test(phe_fil)$p.value
+}) %>% 
+  as.data.frame() %>% 
+  bind_cols(combi) %>% 
+  mutate(phe_var = str_glue('{V1}__{V2}')) %>% 
+  dplyr::select(-V1, -V2) 
+
+
+
 ```
 
  
@@ -157,12 +202,14 @@ pw_fil <- pw[,names(ok_samps[ok_samps >= ceiling(samp_num * per_thre)])]
 ```{r}
  
 fit_data <- Maaslin2(
-    pw_fil, pheno_final, '../data/maASlin2/pw', normalization  = 'NONE', transform = "LOG",  cores = 4, plot_heatmap = T,
+    pw, pheno_final, '../data/maASlin2/pw', 
+    normalization  = 'NONE', 
+    transform = "LOG",  
+    cores = 4, 
+    plot_heatmap = T,
+    min_prevalence = 0.5,
     fixed_effects = c('Toxicity', 
-                      'Cytokine_Release_Syndrome',
-                      'ICANS',
                       'CR',
-                      'ORR', 
                       'Disease_Class',
                       'Key__Patient_Disease_Status_at_CAR',
                       'Antibiotics_4_weeks_prior_to_CAR_T_cells', 
@@ -170,14 +217,14 @@ fit_data <- Maaslin2(
                       'crp',
                       'IL_1_beta',
                       'IL_10',
-                      'IL_6'),
+                      'IL_6',
+                      'Prior_lines_of_therapy'),
     random_effects = c('sex',
                        'age'),
-    standardize = FALSE)
+    standardize = FALSE,
+    max_significance = 0.1)
 
 ```
 
-```{r}
-trans <- log(pw[,'PWY-7456'] + 1)
-```
+
 
