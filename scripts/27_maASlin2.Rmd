@@ -165,7 +165,6 @@ phe_cor <- apply(combi, 1, function(Row) {
 
 ```
 
- 
 ```{r}
 pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
   dplyr::rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
@@ -198,7 +197,6 @@ pw_fil <- pw[,names(ok_samps[ok_samps >= ceiling(samp_num * per_thre)])]
 
 ```
 
-
 ```{r}
  
 fit_data <- Maaslin2(
@@ -225,6 +223,3 @@ fit_data <- Maaslin2(
     max_significance = 0.1)
 
 ```
-
-
-
