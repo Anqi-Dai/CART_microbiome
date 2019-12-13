@@ -11,6 +11,20 @@ library(lubridate)
 ```
 
 ```{r}
+### Using the clinical data info from ctc.medications
+ctc.medications.srx %>% 
+  filter(MRN == '38009710' & drug_name == 'vancomycin') %>% 
+  dplyr::select(MRN, drug_name, start_datetime, stop_datetime)
+
+
+ctc.medications.srx %>% 
+  filter(MRN == '35399272') %>% 
+  dplyr::select(MRN, drug_name, start_datetime, stop_datetime) %>% 
+  filter(str_detect(drug_name, 'cephalexin'))
+  
+```
+
+```{r}
 # the current shotgun data
 sg <- read_csv('../data/cleaned_pheno/final_pheno.csv')
 
@@ -41,9 +55,14 @@ abx <- read_csv('../data/cleaned_pheno/copy12_12_abx.csv', col_types = cols(.def
 
 ```{r}
 # create a table that has Y and N for abx usage 4 weeks prior to the baseline sample collection date
+# only keep the MRN that have Y for abx 4 weeks prior to the baseline sample collection date
 fil <- abx %>% 
   filter(startday <= 0 ) %>% 
   distinct(MRN)
 
 ```
+
+
+
+
 

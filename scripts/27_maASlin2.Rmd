@@ -13,9 +13,11 @@ library(arrangements)
 
 ```{r}
 # get the MRN of my target samples 
-link <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 11252019 wo Censor .xlsx',
+link <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 12122019.xlsx',
                     sheet = 4) %>% 
-  dplyr::select(pt_id, MRN)
+  dplyr::select(pt_id, 
+                MRN,
+                )
 
 
 # format the whole table column and keep the samples in the final cohort 33
@@ -225,3 +227,10 @@ fit_data <- Maaslin2(
     max_significance = 0.1)
 
 ```
+
+```{r}
+source('~/MSK/work/microbiome_db/SQL/scripts/get_data_from_query_OTU.R')
+get_data_from_query_OTU(0,'antibiotics_ag') 
+dbListTables(con) %>% data.frame() %>% filter(grepl("_ag",.)) 
+```
+
