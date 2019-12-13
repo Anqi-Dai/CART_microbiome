@@ -108,6 +108,8 @@ pheno <- pheno %>%
   dplyr::select(-dob)
 
   
+pheno %>% 
+  write_csv('../data/cleaned_pheno/final_pheno.csv')
 ```
 
 

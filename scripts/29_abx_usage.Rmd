@@ -6,9 +6,44 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(readxl)
+library(lubridate)
 ```
 
 ```{r}
+# the current shotgun data
+sg <- read_csv('../data/cleaned_pheno/final_pheno.csv')
+
+# the updated baseline sample collection date
+bcd <- read_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/SampleDates12-12-2019.csv', 
+                col_types = cols(.default = col_character())) %>% 
+  mutate(datecollection = mdy(datecollection)) %>% 
+  filter(str_detect(window, 'Baseline')) %>% 
+  filter(sampleid %in% sg$sampleid) 
+
+# load the updated abx usage table
+abx <- read_csv('../data/cleaned_pheno/copy12_12_abx.csv', col_types = cols(.default = col_character())) %>% 
+  filter(MRN %in% bcd$mrn) %>% 
+  dplyr::select(MRN, 
+                Antibiotics, 
+                start = `Start date`,
+                end = `End Dates`) %>% 
+  # there is one patient has None abx
+  filter(!is.na(start)) %>% 
+  mutate(start = mdy(start),
+         end = mdy(end)) %>% 
+  # join in the date of baseline sample collection
+  left_join(bcd %>% 
+              dplyr::select(mrn, datecollection), by = c('MRN'='mrn')) %>% 
+  mutate(startday = start - datecollection,
+         endday = end - datecollection)
+```
+
+```{r}
+# create a table that has Y and N for abx usage 4 weeks prior to the baseline sample collection date
+fil <- abx %>% 
+  filter(startday <= 0 ) %>% 
+  distinct(MRN)
 
 ```
 
