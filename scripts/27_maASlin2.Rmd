@@ -228,9 +228,4 @@ fit_data <- Maaslin2(
 
 ```
 
-```{r}
-source('~/MSK/work/microbiome_db/SQL/scripts/get_data_from_query_OTU.R')
-get_data_from_query_OTU(0,'antibiotics_ag') 
-dbListTables(con) %>% data.frame() %>% filter(grepl("_ag",.)) 
-```
 

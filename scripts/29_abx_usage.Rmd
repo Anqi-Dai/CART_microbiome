@@ -31,6 +31,8 @@ sg <- read_csv('../data/cleaned_pheno/final_pheno.csv')
 # the updated baseline sample collection date
 bcd <- read_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/SampleDates12-12-2019.csv', 
                 col_types = cols(.default = col_character())) %>% 
+  # restore the MRN and pad necessary 0 in front of it
+  mutate(mrn = str_pad(mrn, 8, side = 'left', pad = '0')) %>% 
   mutate(datecollection = mdy(datecollection)) %>% 
   filter(str_detect(window, 'Baseline')) %>% 
   filter(sampleid %in% sg$sampleid) 
@@ -55,14 +57,52 @@ abx <- read_csv('../data/cleaned_pheno/copy12_12_abx.csv', col_types = cols(.def
 
 ```{r}
 # create a table that has Y and N for abx usage 4 weeks prior to the baseline sample collection date
-# only keep the MRN that have Y for abx 4 weeks prior to the baseline sample collection date
+# only keep the MRN that have Y for abx 4 weeks prior to the baseline sample collection date (in the current TJ antibiotics table)
 fil <- abx %>% 
   filter(startday <= 0 ) %>% 
-  distinct(MRN)
+  distinct(MRN) %>% 
+  pull(MRN)
 
+
+# the remaining MRNs that need to validate whether they have any abx
+other <- setdiff(sg$MRN, fil)
 ```
 
+## Start with Ying table and find out the abx medications
 
+```{r}
+# the below could only be run in the console but not a rmd trunk.
+source('~/MSK/work/microbiome_db/SQL/scripts/get_data_from_query_OTU.R')
+dbListTables(con) %>% data.frame() %>% filter(grepl("_ag",.)) 
+abxtb <- get_data_from_query_OTU(0,'antibiotics_antimicrobial_ordername_map_ag') 
+```
 
+```{r}
+# extract the unique abx names from the above table
+abxu <- abxtb %>% 
+  distinct(order_name) %>% 
+  mutate(abx_name = str_to_lower(str_replace(order_name, ' .+$',''))) %>% 
+  distinct(abx_name) %>% 
+  pull(abx_name)
+```
 
+```{r}
+# all medications of those 14 patients
+othermed <- ctc.medications.srx %>% 
+  filter(MRN %in% other) %>% 
+  dplyr::select(MRN, med_name, start_date, stop_date) %>% 
+  mutate(med_name = str_to_lower(str_replace(med_name, ' .+$',''))) %>% 
+  filter(med_name %in% abxu) %>%  
+  left_join(bcd %>% 
+              dplyr::select(mrn, datecollection), by = c('MRN'='mrn')) %>% 
+  mutate(startday = start_date - datecollection,
+         endday = stop_date - datecollection) %>% 
+  # selecting the records that are the proof of abx
+  filter(startday >= -28 & startday <= 0) 
+
+# the final MRN of the yes exposure to abx in the 4 w prior to baseline window
+yexpo <- c(othermed %>% 
+             distinct(MRN) %>% 
+             pull(MRN), fil)
+```
 
