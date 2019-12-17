@@ -106,3 +106,14 @@ yexpo <- c(othermed %>%
              pull(MRN), fil)
 ```
 
+```{r}
+# create a table to be joined with the final pheno table
+abxout <- tibble(
+  MRN = sg$MRN,
+  abx_expo = if_else(MRN %in% yexpo, 'Y', 'N')
+)
+
+abxout %>% 
+  write_csv('../data/cleaned_pheno/shotgun_cohort_abx_4w_baseline_expo_table.csv')
+```
+

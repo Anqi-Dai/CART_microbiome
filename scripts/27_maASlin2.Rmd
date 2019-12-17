@@ -17,7 +17,7 @@ link <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Ta
                     sheet = 4) %>% 
   dplyr::select(pt_id, 
                 MRN,
-                )
+                disease_sta = `Key: Patient Disease Status at CAR`)
 
 
 # format the whole table column and keep the samples in the final cohort 33
@@ -48,10 +48,9 @@ pheno <- phe_M %>%
                 Toxicity, 
                 Cytokine_Release_Syndrome,
                 ICANS,
-                Antibiotics_4_weeks_prior_to_CAR_T_cells,
-                #Antibiotics_4_weeks_post_CAR_T_cells,
+                Antibiotics_4_weeks_post_CAR_T_cells,
                 Disease_Class,
-                Key__Patient_Disease_Status_at_CAR
+                disease_sta
                 )
 ```
 
@@ -67,6 +66,9 @@ lines <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event T
 ```{r}
 # get the clinical data info  from ying pulled data
 load('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/YingRCode/ctc_melody.RData')
+
+# load the table I made for the abx exposure
+abx <- read_csv('../data/cleaned_pheno/shotgun_cohort_abx_4w_baseline_expo_table.csv')
 ```
 
 ```{r}
@@ -102,7 +104,8 @@ pheno <- pheno %>%
               group_by(MRN) %>% 
               summarise(crp  = max(result_text, na.rm = T)), by = 'MRN') %>% 
   left_join(IL_table, by  ='MRN') %>% 
-  left_join(lines, by = 'MRN')
+  left_join(lines, by = 'MRN') %>% 
+  left_join(abx, by = 'MRN')
   
 
 pheno <- pheno %>% 
@@ -120,7 +123,7 @@ pheno %>%
 pheno_final  <- pheno %>%  
   # change the ferritin to dbl
   mutate(ferritin = as.numeric(ferritin),
-         Key__Patient_Disease_Status_at_CAR = as.character(Key__Patient_Disease_Status_at_CAR)) %>% 
+         disease_sta = as.character(disease_sta)) %>% 
   # change all the pheno vars to factors
   mutate_if(is.character, as.factor) %>% 
   mutate(MRN = as.character(MRN),
@@ -128,8 +131,6 @@ pheno_final  <- pheno %>%
   #mutate(IL_6 = log(IL_6),
   #       IL_10 = log(IL_10)) %>% 
   column_to_rownames('sampleid')  
-
-
 
 
 colnames(pheno_final)
@@ -146,11 +147,8 @@ all_var <- pheno_final %>%
   names
   
   
-  
 combi <- combinations(all_var, 2) %>% 
   as.data.frame(stringsAsFactors = F)
-
-
 
 phe_cor <- apply(combi, 1, function(Row) {
   phe_fil = pheno_final %>% 
@@ -164,9 +162,6 @@ phe_cor <- apply(combi, 1, function(Row) {
   bind_cols(combi) %>% 
   mutate(phe_var = str_glue('{V1}__{V2}')) %>% 
   dplyr::select(-V1, -V2) 
-
-
-
 ```
 
 ```{r}
@@ -202,30 +197,73 @@ pw_fil <- pw[,names(ok_samps[ok_samps >= ceiling(samp_num * per_thre)])]
 ```
 
 ```{r}
- 
+# a look at the final pheno data
+colnames(pheno_final)
+
+cor.test(pheno_final$crp, pheno_final$IL_6, method = 'pearson')
+```
+
+
+```{r}
+# remove everything already in this folder
+#system('rm ../data/maASlin2/pw/*')
+
+
 fit_data <- Maaslin2(
-    pw, pheno_final, '../data/maASlin2/pw', 
+    pw, pheno_final, '../data/maASlin2/pw/onlyFixed', 
     normalization  = 'NONE', 
     transform = "LOG",  
     cores = 4, 
-    plot_heatmap = T,
-    min_prevalence = 0.5,
+    plot_heatmap = F,
+    min_abundance = 0.05,
+    min_prevalence = 0.1,
     fixed_effects = c('Toxicity', 
                       'CR',
                       'Disease_Class',
-                      'Key__Patient_Disease_Status_at_CAR',
-                      'Antibiotics_4_weeks_prior_to_CAR_T_cells', 
+                      'disease_sta',
+                      'abx_expo', 
                       'ferritin',
                       'crp',
                       'IL_1_beta',
-                      'IL_10',
+                      #'IL_10',
                       'IL_6',
-                      'Prior_lines_of_therapy'),
-    random_effects = c('sex',
-                       'age'),
+                      'Prior_lines_of_therapy',
+                      'Antibiotics_4_weeks_post_CAR_T_cells'),
+    # random_effects = c('sex',
+    #                   'age'),
     standardize = FALSE,
-    max_significance = 0.1)
+    max_significance = 0.25)
+
+
 
 ```
 
+```{r}
+system('rm ../data/maASlin2/pw/both/*')
+
+fit_data <- Maaslin2(
+    pw, pheno_final, '../data/maASlin2/pw/both', 
+    normalization  = 'NONE', 
+    transform = "LOG",  
+    cores = 4, 
+    plot_heatmap = F,
+    min_abundance = 0.05,
+    min_prevalence = 0.1,
+    fixed_effects = c('Toxicity', 
+                      'CR',
+                      'Disease_Class',
+                      'disease_sta',
+                      'abx_expo', 
+                      'ferritin',
+                      'crp',
+                      #'IL_1_beta',
+                      #'IL_10',
+                      #'IL_6',
+                      'Prior_lines_of_therapy',
+                      'Antibiotics_4_weeks_post_CAR_T_cells'),
+    random_effects = c('sex',
+                      'age'),
+    standardize = FALSE,
+    max_significance = 0.25)
+```
 
