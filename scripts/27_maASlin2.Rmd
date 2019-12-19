@@ -206,7 +206,7 @@ cor.test(pheno_final$crp, pheno_final$IL_6, method = 'pearson')
 
 ```{r}
 # remove everything already in this folder
-#system('rm ../data/maASlin2/pw/*')
+system('rm ../data/maASlin2/pw/onlyFixed/*')
 
 
 fit_data <- Maaslin2(
@@ -228,9 +228,9 @@ fit_data <- Maaslin2(
                       #'IL_10',
                       'IL_6',
                       'Prior_lines_of_therapy',
+                      'sex',
+                      'age',
                       'Antibiotics_4_weeks_post_CAR_T_cells'),
-    # random_effects = c('sex',
-    #                   'age'),
     standardize = FALSE,
     max_significance = 0.25)
 
@@ -256,9 +256,9 @@ fit_data <- Maaslin2(
                       'abx_expo', 
                       'ferritin',
                       'crp',
-                      #'IL_1_beta',
+                      'IL_1_beta',
                       #'IL_10',
-                      #'IL_6',
+                      'IL_6',
                       'Prior_lines_of_therapy',
                       'Antibiotics_4_weeks_post_CAR_T_cells'),
     random_effects = c('sex',
