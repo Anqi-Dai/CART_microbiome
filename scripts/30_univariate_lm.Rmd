@@ -1,0 +1,75 @@
+---
+title: "Univariate lm model"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+```{r}
+final_pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
+
+pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
+  dplyr::rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  dplyr::rename(pw = names(.)[1])  %>% 
+  # remove the things after the : so that its easier to see on the plot(the pathway name)
+  mutate(pw = str_replace(pw, ':.+$','')) 
+
+pw <- bind_cols(pw[,1],pw[,final_pheno$sampleid])
+
+all.equal(colnames(pw)[2:ncol(pw)], final_pheno$sampleid)
+```
+
+```{r}
+# filter to have each pathway with at least 30% of nonzero (zero <= 50%)
+pw_fil <- pw %>% 
+  column_to_rownames('pw') %>% 
+  as.matrix() 
+
+num_zero_thre <- floor(ncol(pw_fil) * 0.5)
+
+pw_fil <- pw_fil[rowSums(pw_fil == 0) <= num_zero_thre, ]
+nrow(pw_fil)
+
+
+```
+
+
+```{r}
+# select the most abundant N pathways
+
+N <- 10
+topN_pw <- sort(rowSums(pw_fil), decreasing = T)[1:N]
+pw_Fil <- pw_fil[names(topN_pw),]
+
+all.equal(colnames(pw_Fil), final_pheno$sampleid)
+
+# do a linear regression of each rows and then do a FDR correction later
+# the pheno in the same order as the current sample names 
+phe_tox <- final_pheno$Toxicity
+phe_CR <- final_pheno$CR
+
+res_tox <- apply(pw_Fil, 1, function(r){
+  fit = summary(lm(r ~ phe_tox))$coefficients
+  return(pval = fit[nrow(fit),ncol(fit)])
+}) %>% 
+  data.frame() %>% 
+  rename(pval = names(.)[1]) %>% 
+  rownames_to_column('pw') %>% 
+  mutate(padj = p.adjust(pval, method = 'BH')) %>% 
+  arrange(desc(padj))
+
+
+res_CR <- apply(pw_Fil, 1, function(r){
+  fit = summary(lm(r ~ phe_CR))$coefficients
+  return(pval = fit[nrow(fit),ncol(fit)])
+}) %>% 
+  data.frame() %>% 
+  rename(pval = names(.)[1]) %>% 
+  rownames_to_column('pw') %>% 
+  mutate(padj = p.adjust(pval, method = 'BH')) %>% 
+  arrange(desc(padj))
+```
+
