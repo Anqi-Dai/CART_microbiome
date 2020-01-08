@@ -1,12 +1,23 @@
 ---
-title: "Univariate lm model"
-output: html_document
+title: "Univariate linear regression"
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 library(tidyverse)
+library(kableExtra)
 ```
+
+Univariate linear regression to see if there is significant pathways from the humann2 normalized data
+
+## Load pheno and count data 
 
 ```{r}
 final_pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
@@ -16,14 +27,20 @@ pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_
   dplyr::rename(pw = names(.)[1])  %>% 
   # remove the things after the : so that its easier to see on the plot(the pathway name)
   mutate(pw = str_replace(pw, ':.+$','')) 
+```
 
+##### Reorder the column and make sure the sample names in the pheno table align with the sample name in the count table
+
+```{r}
 pw <- bind_cols(pw[,1],pw[,final_pheno$sampleid])
 
 all.equal(colnames(pw)[2:ncol(pw)], final_pheno$sampleid)
 ```
 
+## filter to have each pathway with at least 50% of nonzero (zero <= 50%)
+
 ```{r}
-# filter to have each pathway with at least 30% of nonzero (zero <= 50%)
+# filter to have each pathway with at least 50% of nonzero (zero <= 50%)
 pw_fil <- pw %>% 
   column_to_rownames('pw') %>% 
   as.matrix() 
@@ -31,21 +48,34 @@ pw_fil <- pw %>%
 num_zero_thre <- floor(ncol(pw_fil) * 0.5)
 
 pw_fil <- pw_fil[rowSums(pw_fil == 0) <= num_zero_thre, ]
-nrow(pw_fil)
-
 
 ```
 
+##### How many pathways left
 
 ```{r}
-# select the most abundant N pathways
+nrow(pw_fil)
+```
+
+## Select the most abundant 10 pathways and log2 transform the data
+
+```{r}
+# select the most abundant N pathways and log2 transform the data
 
 N <- 10
 topN_pw <- sort(rowSums(pw_fil), decreasing = T)[1:N]
 pw_Fil <- pw_fil[names(topN_pw),]
 
-all.equal(colnames(pw_Fil), final_pheno$sampleid)
+pw_Fil <- log2(pw_Fil)
 
+pw_Fil %>% 
+  kable(caption = 'log2 transformed count table with top 10 most abundant pathways') %>% 
+  kable_styling(full_width = F, position = 'left')
+```
+
+## Linear regression for each pathway with Toxicity and CR as response respectively, followed by FDR correction
+
+```{r}
 # do a linear regression of each rows and then do a FDR correction later
 # the pheno in the same order as the current sample names 
 phe_tox <- final_pheno$Toxicity
@@ -71,5 +101,30 @@ res_CR <- apply(pw_Fil, 1, function(r){
   rownames_to_column('pw') %>% 
   mutate(padj = p.adjust(pval, method = 'BH')) %>% 
   arrange(desc(padj))
+
+res_tox %>% 
+  kable(caption = 'Response to Toxicity') %>% 
+  kable_styling(full_width = F, position = 'left')
+
+res_CR %>% 
+  kable(caption = 'Response to CR') %>% 
+  kable_styling(full_width = F, position = 'left')
 ```
 
+## How many pathways are significant with FDR < 0.1
+
+```{r}
+# Toxicity
+res_tox %>% 
+  filter(padj < 0.1) %>% 
+  nrow
+
+# CR
+res_CR %>% 
+  filter(padj < 0.1) %>% 
+  nrow
+
+```
+
+
+##### I have tested: no sig pathways even select the top 200 most abundant ones.
