@@ -36,89 +36,69 @@ pw <- bind_cols(pw[,1],pw[,final_pheno$sampleid])
 
 all.equal(colnames(pw)[2:ncol(pw)], final_pheno$sampleid)
 
+phe_tox <- final_pheno$Toxicity
+phe_CR <- final_pheno$CR
+
 pw <- pw %>% 
   column_to_rownames('pw') %>% 
   as.matrix() 
 ```
 
-
-
-```{r}
-## Filter to have each pathway with at least 10% of nonzero (zero <= 90%)
-
-#num_zero_thre <- floor(ncol(pw_fil) * 0.9)
-
-#pw_fil <- pw_fil[rowSums(pw_fil == 0) <= num_zero_thre, ]
-
-##### How many pathways left
-#nrow(pw_fil) 
-```
-
-
-## Log2 transform the data
+## Use different prevalence filtering threshold (percentage of zero count samples) and do the log2 transform and wilcox test
 
 ```{r}
-#pw_Fil <- log2(pw_fil + 0.01)
+num_zero_thre <- seq(0, 0.99, 0.05)
 
-# use the whole table (not filter anything)
-pw_log2 <- log2(pw + 0.01)
-```
+test_diff_zero_thre_filter <- function(fil_thre){
+  
+  num_zero_thre <- floor(ncol(pw_fil) * fil_thre)
+  
+  pw_fil <- pw[rowSums(pw == 0) <= num_zero_thre, ]
+  
+  pw_log2 <- log2(pw_fil + 0.01)
+  
+  sig_tox <- apply(pw_log2, 1, function(r){
+      res = wilcox.test(r ~ phe_tox, exact = F)
+      return(pval = res$p.value)
+    }) %>% 
+      data.frame() %>% 
+      rename(pval = names(.)[1]) %>% 
+      rownames_to_column('pw') %>% 
+      mutate(padj = p.adjust(pval, method = 'BH')) %>% 
+      arrange(desc(padj)) %>% 
+      filter(padj < 0.25) %>% 
+      nrow
+  
+  sig_CR <- apply(pw_log2, 1, function(r){
+      res = wilcox.test(r ~ phe_CR, exact = F)
+      return(pval = res$p.value)
+    }) %>% 
+      data.frame() %>% 
+      rename(pval = names(.)[1]) %>% 
+      rownames_to_column('pw') %>% 
+      mutate(padj = p.adjust(pval, method = 'BH')) %>% 
+      arrange(desc(padj)) %>% 
+      filter(padj < 0.25) %>% 
+      nrow
+  
+  return(list(sig_tox_num = sig_tox,
+         sig_CR_num = sig_CR,
+         pw_num = nrow(pw_log2)))
+}
 
-How many pathways went into the test
 
-```{r}
-nrow(pw_log2)
-```
+res <- list()
+for (i in 1:length(num_zero_thre)){
+  res[[i]] = test_diff_zero_thre_filter(num_zero_thre[i])
+}
 
-
-## Wilcox for each pathway with Toxicity and CR as response respectively, followed by FDR correction
-
-```{r}
-phe_tox <- final_pheno$Toxicity
-phe_CR <- final_pheno$CR
-
-res_tox <- apply(pw_log2, 1, function(r){
-  res = wilcox.test(r ~ phe_tox)
-  return(pval = res$p.value)
-}) %>% 
-  data.frame() %>% 
-  rename(pval = names(.)[1]) %>% 
-  rownames_to_column('pw') %>% 
-  mutate(padj = p.adjust(pval, method = 'BH')) %>% 
-  arrange(desc(padj))
+final <- bind_rows(res) %>% 
+  mutate(zero_perc = num_zero_thre) %>% 
+  select(zero_perc, pw_num, sig_tox_num, sig_CR_num)
 
 
-res_CR <- apply(pw_log2, 1, function(r){
-  res = wilcox.test(r ~ phe_CR)
-  return(pval = res$p.value)
-}) %>% 
-  data.frame() %>% 
-  rename(pval = names(.)[1]) %>% 
-  rownames_to_column('pw') %>% 
-  mutate(padj = p.adjust(pval, method = 'BH')) %>% 
-  arrange(desc(padj))
-
-res_tox %>% 
-  kable(caption = 'Response to Toxicity') %>% 
+final %>% 
+  kable(caption = 'Number of significant results (FDR < 0.25) in different zero percentage threshold') %>% 
   kable_styling(full_width = F, position = 'left')
-
-res_CR %>% 
-  kable(caption = 'Response to CR') %>% 
-  kable_styling(full_width = F, position = 'left')
-```
-
-## How many pathways are significant with FDR < 0.1
-
-```{r}
-# Toxicity
-res_tox %>% 
-  filter(padj < 0.1) %>% 
-  nrow
-
-# CR
-res_CR %>% 
-  filter(padj < 0.1) %>% 
-  nrow
-
 ```
 
