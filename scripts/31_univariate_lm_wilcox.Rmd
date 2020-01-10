@@ -51,7 +51,7 @@ num_zero_thre <- seq(0, 0.99, 0.05)
 
 test_diff_zero_thre_filter <- function(fil_thre){
   
-  num_zero_thre <- floor(ncol(pw_fil) * fil_thre)
+  num_zero_thre <- floor(ncol(pw) * fil_thre)
   
   pw_fil <- pw[rowSums(pw == 0) <= num_zero_thre, ]
   
