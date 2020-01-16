@@ -1,0 +1,234 @@
+---
+title: "Two genera pathway association"
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+library(tidyverse)
+library(pheatmap)
+library(kableExtra)
+```
+
+Load the temporary table of humann2 gene fam in genus level results
+
+Renorm
+
+Split
+
+# The genus of Enterococcus
+
+Get the Enterococcus count of the pathway
+
+```{r}
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
+
+genus <- read_tsv('../data/humann2_res/genus_level/humann2_pathabundance_genus_level_cpm_stratified.tsv') %>% 
+  dplyr::rename(pw = names(.)[1]) %>% 
+  rename_all(funs(str_replace(., '_genefamilies_.+$','')))
+
+genus_entero <- genus %>% 
+  filter(str_detect(pw, 'g__Enterococcus')) 
+```
+
+```{r}
+# a heatmap to see the counts distribution
+
+annot <- data.frame(row.names = pheno$sampleid, tox = pheno$Toxicity, CR = pheno$CR)
+
+pheatmap(
+  genus_entero %>% 
+    column_to_rownames('pw') %>% 
+    select(-`1409B`) %>% 
+    as.matrix,
+  #color=bwrPalette, 
+  annotation_col = annot,
+  show_rownames = TRUE,
+  show_colnames = TRUE,
+  filename = '../figs/Enterococcus_heatmap.jpg',
+  height = 18,
+  width = 18,
+  cluster_rows = F,
+  cluster_cols = F
+)
+```
+
+Many of them are zeros that we can see, I don't think it makes a lot of sense to do a linear regression.
+
+## Do a wilcox in relation to Toxicity
+
+```{r}
+# ehh do it anyway
+entero_matrix <- genus_entero %>% 
+    column_to_rownames('pw') %>% 
+    as.matrix
+
+
+# rearrange the column names
+entero_matrix <- entero_matrix[,pheno$sampleid]
+
+all.equal(colnames(entero_matrix), pheno$sampleid)
+
+# a linear regression of CR and tox respectively
+sig_tox <- apply(entero_matrix, 1, function(r){
+    res = wilcox.test(r ~ pheno$Toxicity, exact = F)
+    return(pval = res$p.value)
+  }) %>% 
+    data.frame() %>% 
+    dplyr::rename(pval = names(.)[1]) %>% 
+    rownames_to_column('pw') %>% 
+    mutate(padj = p.adjust(pval, method = 'BH')) %>% 
+    arrange(padj)
+
+sig_tox %>% 
+  head() %>% 
+  kable() %>% 
+  kable_styling(full_width = F)
+
+
+sig_CR <- apply(entero_matrix, 1, function(r){
+    res = wilcox.test(r ~ pheno$CR, exact = F)
+    return(pval = res$p.value)
+  }) %>% 
+    data.frame() %>% 
+    dplyr::rename(pval = names(.)[1]) %>% 
+    rownames_to_column('pw') %>% 
+    mutate(padj = p.adjust(pval, method = 'BH')) %>% 
+    arrange(padj) 
+
+sig_CR %>% 
+  head() %>% 
+  kable() %>% 
+  kable_styling(full_width = F)
+```
+
+
+# Gather all the genera in Bacteroidetes
+
+```{r}
+bac_genera_g <- c('Bacteroides',
+                'Prevotella',
+                'Parabacteroides',
+                'Porphyromonas',
+                'Flavobacterium',
+                'Cytophaga',
+                'Alistipes',
+                'Flexibacter',
+                'Capnocytophaga',
+                'Dyadobacter',
+                'Hymenobacter',
+                'Barnesiella',
+                'Dorea',
+                'Flectobacillus',
+                'Arcicella',
+                'Chryseobacterium',
+                'Salinibacter',
+                'Polaribacter',
+                'Cellulophaga',
+                'Blattabacterium',
+                'Runella',
+                'Flammeovirga',
+                'Tenacibaculum',
+                'Sphingobacterium',
+                'Pedobacter',
+                'Leeuwenhoekiella',
+                'Butyricimonas',
+                'Bergeyella',
+                'Robiginitalea',
+                'Croceibacter',
+                'Dysgonomonas',
+                'Algoriphagus',
+                'Thermonema',
+                'Gelidibacter',
+                'Arenibacter',
+                'Alkaliflexus',
+                'Aequorivita',
+                'Muricauda',
+                'Chitinophaga',
+                'Epilithonimonas',
+                'Paludibacter',
+                'Belliella',
+                'Butyricicoccus',
+                'Megamonas',
+                'Lewinella',
+                'Niabella',
+                'Vitellibacter',
+                'Fabibacter',
+                'Pontibacter',
+                'Proteiniphilum',
+                'Mucilaginibacter')
+
+
+bac_genera <- read_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/data/Bacteroidetes_genus.csv') %>% 
+  pull(genus)
+
+intersect(bac_genera, bac_genera_g)
+```
+
+```{r}
+# find out all the rows that have bac genera
+genus_bact <- genus %>% 
+  separate(pw, into = c('pathway','genus'), '\\|') %>% 
+  mutate(genus = str_replace(genus, 'g__','')) %>% 
+  filter(genus %in% bac_genera)
+
+genus_bact  %>% 
+  count(pathway)
+
+# group by the pathway and get the summed count of all the bact genera
+bact_matrix <- genus_bact %>% 
+  select(-genus) %>% 
+  gather(key = 'sampleid', value = 'CPM', names(.)[2]:names(.)[ncol(.)]) %>% 
+  group_by(pathway, sampleid) %>% 
+  summarise(cpm = sum(CPM)) %>% 
+  spread(key = 'sampleid', value = 'cpm') %>% 
+  column_to_rownames('pathway') %>% 
+  as.matrix
+  
+bact_matrix <- bact_matrix[,pheno$sampleid]
+
+all.equal(colnames(bact_matrix), pheno$sampleid)
+```
+## a wilcox of CR and tox respectively
+
+```{r}
+# a wilcox of CR and tox respectively
+sig_tox <- apply(bact_matrix, 1, function(r){
+    res = wilcox.test(r ~ pheno$Toxicity, exact = F)
+    return(pval = res$p.value)
+  }) %>% 
+    data.frame() %>% 
+    dplyr::rename(pval = names(.)[1]) %>% 
+    rownames_to_column('pw') %>% 
+    mutate(padj = p.adjust(pval, method = 'BH')) %>% 
+    arrange(padj)
+
+sig_tox %>% 
+  head() %>% 
+  kable() %>% 
+  kable_styling(full_width = F)
+
+
+sig_CR <- apply(bact_matrix, 1, function(r){
+    res = wilcox.test(r ~ pheno$CR, exact = F)
+    return(pval = res$p.value)
+  }) %>% 
+    data.frame() %>% 
+    dplyr::rename(pval = names(.)[1]) %>% 
+    rownames_to_column('pw') %>% 
+    mutate(padj = p.adjust(pval, method = 'BH')) %>% 
+    arrange(padj) 
+
+sig_CR %>% 
+  head() %>% 
+  kable() %>% 
+  kable_styling(full_width = F)
+```
+
