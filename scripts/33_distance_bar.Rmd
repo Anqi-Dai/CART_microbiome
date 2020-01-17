@@ -93,3 +93,17 @@ tibble(
             title = 'euclidean distance within and between group')
 ```
 
+
+```{r}
+all <- bind_rows(data_frame(group = 'NY',distance = dists@dist),
+    data_frame(group = 'N',distance = N_dist),
+    data_frame(group = 'Y',distance = Y_dist)) 
+
+all %>% 
+  ggboxplot(x = 'group', y = 'distance', add = 'jitter') +
+  stat_compare_means(
+    comparisons = list(c('NY', 'N'), c('NY','Y'), c('Y','N')),
+    label = "p.signif",
+    method = 'wilcox.test')
+```
+
