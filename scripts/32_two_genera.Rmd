@@ -179,6 +179,21 @@ genus_bact <- genus %>%
   mutate(genus = str_replace(genus, 'g__','')) %>% 
   filter(genus %in% bac_genera)
 
+genus_no_bact <- genus %>% 
+  separate(pw, into = c('pathway','genus'), '\\|') %>% 
+  mutate(genus = str_replace(genus, 'g__','')) %>% 
+  filter(!genus %in% bac_genera) %>% 
+  filter(genus != 'unclassified')
+
+genus_no_bact_matrix <- genus_no_bact %>% 
+  select(-genus) %>% 
+  gather(key = 'sampleid', value = 'CPM', names(.)[2]:names(.)[ncol(.)]) %>% 
+  group_by(pathway, sampleid) %>% 
+  summarise(cpm = sum(CPM)) %>% 
+  spread(key = 'sampleid', value = 'cpm') %>% 
+  column_to_rownames('pathway') %>% 
+  as.matrix
+
 genus_bact  %>% 
   count(pathway)
 

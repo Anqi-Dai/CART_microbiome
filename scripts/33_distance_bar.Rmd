@@ -1,0 +1,95 @@
+---
+title: "Plot the within and between group distance in a bar plot"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+```
+
+```{r}
+# make a matrix of filtered 50% cpm reordered counts
+final_pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
+
+pw <- read_tsv('../data/humann2_res/humann2_final_out/humann2_pathabundance_cpm_unstratified.tsv') %>% 
+  dplyr::rename_all(funs(str_replace(., '_Abundance$',''))) %>% 
+  dplyr::rename(pw = names(.)[1])  %>% 
+  # remove the things after the : so that its easier to see on the plot(the pathway name)
+  mutate(pw = str_replace(pw, ':.+$','')) 
+
+pw <- bind_cols(pw[,1],pw[,final_pheno$sampleid])
+
+all.equal(colnames(pw)[2:ncol(pw)], final_pheno$sampleid)
+
+# filter to have each pathway with at least 50% of nonzero (zero <= 50%)
+pw_fil <- pw %>% 
+  column_to_rownames('pw') %>% 
+  as.matrix() 
+
+num_zero_thre <- floor(ncol(pw_fil) * 0.5)
+
+pw_fil <- pw_fil[rowSums(pw_fil == 0) <= num_zero_thre, ]
+
+pw_fil %>% 
+  write.csv('../data/00_filtered_matrix/humann2_pathabundance_cpm_unstratified_filtered50_reorder_matrix.csv', 
+              row.names = T, col.names = T, quote = F)
+```
+
+
+You make a barplot with three bars.
+- mean distance among samples from The “N” group and another (within distance group N)
+- mean distance among samples from The “Y” group and another (within distance group Y)
+- mean distance among samples from group “N” to group “Y” (between groups distance) 
+
+
+- For within distance in group “N”, you take the values from rows and columns that belong to samples of group “N”, excluding the diagonal. The matrix is symmetric and will give duplicate values, so take only one of them.
+- Do the same for within distance in group “Y”.
+- For between distance, you take the rows from group “N” and columns from group “Y”. The matrix is not symmetric in this case and give a single value for each possible pair.
+ 
+```{r}
+# calculate distance between N samples
+N_samps <- final_pheno %>% 
+  filter(Toxicity == 'N') %>% 
+  pull(sampleid)
+
+Y_samps <- final_pheno %>% 
+  filter(Toxicity == 'Y') %>% 
+  pull(sampleid)
+
+N_mtx <- pw_fil[,N_samps]
+
+Y_mtx <- pw_fil[,Y_samps]
+
+# calculate distance between samples
+
+N_dist <- stats::dist(t(N_mtx), method = "euclidean")
+
+Y_dist <- stats::dist(t(Y_mtx), method = "euclidean")
+
+N_dist_mean <- mean(N_dist)
+
+Y_dist_mean <- mean(Y_dist)
+
+# calcualte distance between the pairs in N and Y group
+library(pdist)
+
+dists <- pdist(t(N_mtx), t(Y_mtx))
+
+res <- as.matrix(dists)
+
+NY_dist_mean <- mean(res)
+
+tibble(
+  N_dist_mean = N_dist_mean,
+  Y_dist_mean = Y_dist_mean,
+  NY_dist_mean =  NY_dist_mean
+) %>% 
+  gather(key = 'group', value  = 'mean_dist') %>% 
+  mutate(mean_dist = round(mean_dist, 0)) %>% 
+  ggbarplot(x = 'group', y = 'mean_dist', label = T,
+            color = 'white', fill = 'forestgreen',
+            title = 'euclidean distance within and between group')
+```
+
