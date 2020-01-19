@@ -1,0 +1,45 @@
+---
+title: "secondary bile acid biosynthesis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggpubr)
+```
+
+
+```{r}
+pheno <- read_csv('../../CART_microbiome/data/cleaned_pheno/final_pheno.csv')
+mbile <- list.files('../../CART_microbiome/data/bile/', full.names = T)
+
+all <- mbile %>% 
+  set_names(mbile) %>% 
+  map(~ read_tsv(.)) %>% 
+  bind_rows(.id = 'sampleid') %>% 
+  group_by(sampleid) %>% 
+  summarise(RPKM = sum(Count))
+
+all %>% 
+  mutate(sampleid = str_replace(sampleid, '.+//',''),
+         sampleid = str_replace(sampleid, '_short.+$','')) %>% 
+  full_join(pheno, by = 'sampleid') %>% 
+  ggboxplot(x = 'CR', y = 'RPKM', color = 'CR', palette = 'lancet', add = 'dotplot')  +
+  stat_compare_means(comparisons = list(c('Y', 'N')), 
+                     label = "p.signif",
+                     method = 'wilcox.test',
+                     correct=FALSE) 
+
+
+all %>% 
+  mutate(sampleid = str_replace(sampleid, '.+//',''),
+         sampleid = str_replace(sampleid, '_short.+$','')) %>% 
+  full_join(pheno, by = 'sampleid') %>% 
+  ggboxplot(x = 'Toxicity', y = 'RPKM', color = 'Toxicity', palette = 'lancet', add = 'dotplot',
+            title = 'CART samples secondary bile acid')  +
+  stat_compare_means(comparisons = list(c('Y', 'N')), 
+                     label = "p.signif",
+                     method = 'wilcox.test',
+                     correct = FALSE) 
+```
