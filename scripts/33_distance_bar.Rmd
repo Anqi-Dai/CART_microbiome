@@ -38,6 +38,13 @@ pw_fil %>%
 ```
 
 
+```{r}
+# do the same thing as below but with matrix that only have enterococcos and ...
+pw_fil <- bact_matrix
+```
+
+
+
 You make a barplot with three bars.
 - mean distance among samples from The “N” group and another (within distance group N)
 - mean distance among samples from The “Y” group and another (within distance group Y)
@@ -81,20 +88,17 @@ res <- as.matrix(dists)
 
 NY_dist_mean <- mean(res)
 
-tibble(
-  N_dist_mean = N_dist_mean,
-  Y_dist_mean = Y_dist_mean,
-  NY_dist_mean =  NY_dist_mean
-) %>% 
-  gather(key = 'group', value  = 'mean_dist') %>% 
-  mutate(mean_dist = round(mean_dist, 0)) %>% 
-  ggbarplot(x = 'group', y = 'mean_dist', label = T,
-            color = 'white', fill = 'forestgreen',
-            title = 'euclidean distance within and between group')
-```
+# tibble(
+#   N_dist_mean = N_dist_mean,
+#   Y_dist_mean = Y_dist_mean,
+#   NY_dist_mean =  NY_dist_mean
+# ) %>% 
+#   gather(key = 'group', value  = 'mean_dist') %>% 
+#   mutate(mean_dist = round(mean_dist, 0)) %>% 
+#   ggbarplot(x = 'group', y = 'mean_dist', label = T,
+#             color = 'white', fill = 'forestgreen',
+#             title = 'euclidean distance within and between group')
 
-
-```{r}
 all <- bind_rows(data_frame(group = 'NY',distance = dists@dist),
     data_frame(group = 'N',distance = N_dist),
     data_frame(group = 'Y',distance = Y_dist)) 
@@ -104,6 +108,7 @@ all %>%
   stat_compare_means(
     comparisons = list(c('NY', 'N'), c('NY','Y'), c('Y','N')),
     label = "p.signif",
-    method = 'wilcox.test')
+    method = 'wilcox.test') +
+  ggsave('../figs/distance/bact.jpg', dpi = 300, width = 6 , height = 5)
 ```
 
