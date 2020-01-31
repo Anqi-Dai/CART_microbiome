@@ -28,8 +28,7 @@ feature <- fns %>%
         filter(!is.na(score))) %>% 
   bind_rows(.id = 'group') %>% 
   mutate(group = str_replace(group, 'pathway_abundace_pheno__','')) %>% 
-  mutate(group = str_replace(group, '.res$','')) %>% 
-  dplyr::select(-xx, -pval)
+  mutate(group = str_replace(group, '.res$','')) 
 
 # change the "N" direction to be minus score
 feature <- bind_rows(
@@ -42,6 +41,9 @@ feature <- bind_rows(
     pluck('Y')  
 ) %>% 
   arrange(group, pathway, score)
+
+feature %>% 
+  write_csv('../data/lefse_results_sig_pathway.csv')
 ```
 
 ```{r}
