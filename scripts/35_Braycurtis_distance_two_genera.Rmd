@@ -1,0 +1,70 @@
+---
+title: "Bray curtis distance to the group centroid"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vegan)
+library(pdist)
+```
+
+# entero_matrix
+
+```{r}
+sum_0_sample <- names(apply(entero_matrix, 2, sum)[apply(entero_matrix, 2, sum) == 0])
+entero_matrix_fil <- entero_matrix[,!colnames(entero_matrix) %in% sum_0_sample]
+
+# the N matrix and Y matrix
+N_mat <- entero_matrix_fil[,colnames(entero_matrix_fil) %in% N_samps]
+Y_mat <- entero_matrix_fil[,!colnames(entero_matrix_fil) %in% N_samps]
+
+
+N_dist <- vegdist(t(N_mat), "bray")
+Y_dist <- vegdist(t(Y_mat), "bray")
+
+#dists <- pdist(t(N_mat), t(Y_mat))
+
+
+all <- bind_rows(
+    data_frame(group = 'N',distance = N_dist),
+    data_frame(group = 'Y',distance = Y_dist)
+    ) 
+
+all %>% 
+  ggboxplot(x = 'group', y = 'distance', add = 'jitter', title = 'entero_matrix') +
+  stat_compare_means(
+    comparisons = list(c('Y','N')),
+    label = "p.signif",
+    method = 'wilcox.test')
+```
+
+# bact_matrix
+
+```{r}
+sum_0_sample <- names(apply(bact_matrix, 2, sum)[apply(bact_matrix, 2, sum) == 0])
+
+bact_matrix_fil <- bact_matrix[,!colnames(bact_matrix) %in% sum_0_sample]
+
+# the N matrix and Y matrix
+N_mat <- bact_matrix_fil[,colnames(bact_matrix_fil) %in% N_samps]
+Y_mat <- bact_matrix_fil[,!colnames(bact_matrix_fil) %in% N_samps]
+
+
+N_dist <- vegdist(t(N_mat), "bray")
+Y_dist <- vegdist(t(Y_mat), "bray")
+
+
+all <- bind_rows(
+    data_frame(group = 'N',distance = N_dist),
+    data_frame(group = 'Y',distance = Y_dist)
+    ) 
+
+all %>% 
+  ggboxplot(x = 'group', y = 'distance', add = 'jitter', title = 'bact_matrix') +
+  stat_compare_means(
+    comparisons = list(c('Y','N')),
+    label = "p.signif",
+    method = 'wilcox.test')
+```
+
