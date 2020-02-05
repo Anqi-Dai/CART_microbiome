@@ -1,0 +1,138 @@
+---
+title: "Enterococcus and Bacteroidetes"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(pheatmap)
+library(tidyverse)
+library(LaplacesDemon)
+```
+
+Investigating the contribution to the pathway abundances from the Bacteroidetes phylum and Enterococcus genus
+
+```{r}
+# load the normalized CPM count matrix with the stratified contribution from the above listed pylum and genus
+
+entero_matrix <- read_tsv('../data/two_genera/genus_entero_pw_df.tsv') %>% 
+    column_to_rownames('pw') %>% 
+    as.matrix
+
+bact_matrix <-  read_tsv('../data/two_genera/genus_bact_pw_df.tsv') %>% 
+    column_to_rownames('pathway') %>% 
+    as.matrix
+
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
+```
+
+## Visualize normalized counts in Bacteroidetes phylum
+
+```{r out.width='200%', out.height='200%'}
+annot <- data.frame(row.names = pheno$sampleid, tox = pheno$Toxicity, CR = pheno$CR)
+
+
+pheatmap(
+  bact_matrix,
+  #color=bwrPalette, 
+  annotation_col = annot,
+  show_rownames = F,
+  show_colnames = TRUE,
+  #filename = '../figs/heatmap/bact_heatmap.jpg',
+  height = 18,
+  width = 28,
+  cluster_rows = T,
+  cluster_cols = T,
+  main = 'All samples in Bacteroidetes'
+)
+```
+
+Since 2098A seems to have too high counts and are making other samples counts ignorable. Try removing that one
+
+```{r out.width='200%', out.height='200%'}
+pheatmap(
+  bact_matrix[,colnames(bact_matrix) != "2098A"],
+  #color=bwrPalette, 
+  annotation_col = annot,
+  show_rownames = F,
+  show_colnames = TRUE,
+  #filename = '../figs/heatmap/bact_heatmap.jpg',
+  height = 18,
+  width = 28,
+  cluster_rows = T,
+  cluster_cols = T,
+  main = 'Excluding sample 2098A in Bacteroidetes'
+) 
+```
+
+It doesn't suggest any association between counts of certain pathways with the phenotype eg. toxicity.
+
+## Binarize Enterococcus counts and visualize
+
+Since the Enterococcus is only a genus and the counts are more sparse for that, binarize the matrix to presense -- 1, absense -- 0 
+
+```{r}
+entero_matrix[entero_matrix > 0] = 1
+
+pheatmap(
+  entero_matrix,
+  #color=bwrPalette, 
+  annotation_col = annot,
+  show_rownames = F,
+  show_colnames = TRUE,
+  #filename = '../figs/heatmap/entero_heatmap_binary.jpg',
+  height = 18,
+  width = 20,
+  cluster_rows = T,
+  cluster_cols = T,
+  main = 'entero genus'
+)
+```
+
+Again no differentiating between the groups
+
+## Pairwise KL divergence 
+
+```{r}
+library(arrangements)
+
+combi <- combinations(colnames(bact_matrix), 2) %>% 
+  as.data.frame(stringsAsFactors = F) 
+
+
+KLD_res <- apply(combi, 1, function(Row) {
+
+  samp1_dens = density(bact_matrix[,Row[['V1']]])$y
+  samp2_dens = density(bact_matrix[,Row[['V2']]])$y
+  
+  return(pairwise_KLD = KLD(samp1_dens, samp2_dens)$mean.sum.KLD	)
+
+}) %>% 
+  as.data.frame() %>% 
+  bind_cols(combi) %>% 
+  rename(KLD = names(.)[1])
+
+
+KLD_res_matrix <- KLD_res %>% 
+  spread(key = 'V2', value = 'KLD') %>% 
+  column_to_rownames('V1') %>% 
+  as.matrix()
+
+
+pheatmap(
+  KLD_res_matrix,
+  #color=bwrPalette, 
+  annotation_col = annot,
+  show_rownames = T,
+  show_colnames = T,
+  #filename = '../figs/heatmap/entero_heatmap_binary.jpg',
+  height = 18,
+  width = 18,
+  cluster_rows = T,
+  cluster_cols = T,
+  main = 'pairwise KL divergence'
+)
+
+
+```
+

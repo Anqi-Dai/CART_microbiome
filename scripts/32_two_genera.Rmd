@@ -14,7 +14,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
 library(tidyverse)
 library(pheatmap)
-library(kableExtra)
+library(kableExtra) 
 ```
 
 Load the temporary table of humann2 gene fam in genus level results
@@ -69,6 +69,10 @@ Many of them are zeros that we can see, I don't think it makes a lot of sense to
 entero_matrix <- genus_entero %>% 
     column_to_rownames('pw') %>% 
     as.matrix
+
+genus_entero %>% 
+  write_tsv('../data/two_genera/genus_entero_pw_df.tsv')
+
 
 
 # rearrange the column names
@@ -166,8 +170,9 @@ bac_genera_g <- c('Bacteroides',
                 'Mucilaginibacter')
 
 
-bac_genera <- read_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/data/Bacteroidetes_genus.csv') %>% 
+bac_genera <- read_csv('../data/two_genera/Bacteroidetes_genus.csv') %>% 
   pull(genus)
+
 
 intersect(bac_genera, bac_genera_g)
 ```
@@ -206,6 +211,9 @@ bact_matrix <- genus_bact %>%
   spread(key = 'sampleid', value = 'cpm') %>% 
   column_to_rownames('pathway') %>% 
   as.matrix
+
+
+
   
 bact_matrix <- bact_matrix[,pheno$sampleid]
 
@@ -245,5 +253,56 @@ sig_CR %>%
   head() %>% 
   kable() %>% 
   kable_styling(full_width = F)
+```
+```{r}
+
+pheatmap(
+  bact_matrix[,colnames(bact_matrix) != "2098A"],
+  #color=bwrPalette, 
+  annotation_col = annot,
+  show_rownames = T,
+  show_colnames = TRUE,
+  filename = '../figs/heatmap/bact_heatmap.jpg',
+  height = 18,
+  width = 28,
+  cluster_rows = T,
+  cluster_cols = T
+)
+```
+
+
+```{r}
+# because of the sparsity that we turn the count into 0 and 1
+
+entero_matrix[entero_matrix > 0] = 1
+
+bact_matrix[bact_matrix > 0] = 1
+
+pheatmap(
+  bact_matrix,
+  #color=bwrPalette, 
+  annotation_col = annot,
+  show_rownames = F,
+  show_colnames = TRUE,
+  filename = '../figs/heatmap/bact_heatmap_binary.jpg',
+  height = 18,
+  width = 20,
+  cluster_rows = T,
+  cluster_cols = T
+)
+
+pheatmap(
+  entero_matrix,
+  #color=bwrPalette, 
+  annotation_col = annot,
+  show_rownames = F,
+  show_colnames = TRUE,
+  filename = '../figs/heatmap/entero_heatmap_binary.jpg',
+  height = 18,
+  width = 20,
+  cluster_rows = T,
+  cluster_cols = T,
+  main = 'entero genus'
+)
 ```
 
