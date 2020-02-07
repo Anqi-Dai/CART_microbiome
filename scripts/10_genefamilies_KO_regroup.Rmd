@@ -100,4 +100,17 @@ pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') %>%
 plot_BC_PCoA(cts, pheno, 'Toxicity')
 ```
 
+```{r}
+# look at the KOs that is involved in the secondary bile acid biosynthesis
 
+bile_KOs <- c('K01442','K15868','K15869','K15870','K15871','K15872','K15873','K15874')
+bile_KOs <- paste(bile_KOs, collapse = '|')
+
+ko_genef <- read_tsv('../data/humann2_res/humann2_genefamilies_KO_regroup.tsv') %>% 
+  filter(str_detect(`# Gene Family`, bile_KOs)) %>% 
+  filter(str_detect(`# Gene Family`, '\\|')) %>% 
+  distinct(`# Gene Family`) %>% 
+  rename(genefam = `# Gene Family`) %>% 
+  separate(genefam, into = c('KO_ID','species') ,sep = '\\|'  ) 
+
+```
