@@ -11,9 +11,13 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
+```
+
+```{r}
 library(tidyverse)
 library(kableExtra)
 ```
+ 
 
 Univariate Wilcox test to see if there is significant pathways from the humann2 normalized data
 
@@ -100,5 +104,9 @@ final <- bind_rows(res) %>%
 final %>% 
   kable(caption = 'Number of significant results (FDR < 0.25) in different zero percentage threshold') %>% 
   kable_styling(full_width = F, position = 'left')
+```
+
+```{r}
+final
 ```
 

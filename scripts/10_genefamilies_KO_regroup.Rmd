@@ -113,4 +113,7 @@ ko_genef <- read_tsv('../data/humann2_res/humann2_genefamilies_KO_regroup.tsv') 
   rename(genefam = `# Gene Family`) %>% 
   separate(genefam, into = c('KO_ID','species') ,sep = '\\|'  ) 
 
+
+ko_genef %>% 
+  write_csv('../data/bile/bile_acid_produ_spp.csv')
 ```
