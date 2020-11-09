@@ -1,0 +1,247 @@
+---
+title: "cleaning the pheno table"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+## use Antonio's script to clean the 16s data meta info
+
+### msk
+
+```{r}
+#Oct/16/2019
+#
+#Loading patient info for Melody's project.
+#
+#
+
+library('openxlsx');
+library(data.table);
+
+if(!exists("dt_carT_patient_info_with_sample_and_oligoID_time_stamp")){
+  
+  #Load patient info
+  # dt_carT_patient_info = read.xlsx("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table 10162019.xlsx",
+  #                                  sheetName = "Summary Table with Some Oligos");
+  # dt_carT_patient_info = data.table(dt_carT_patient_info);
+  # dt_carT_patient_info = dt_carT_patient_info[!is.na(pt_id)];
+  # 
+  #Convert sampleid to oligo
+  dt_carT_sampleid_info = openxlsx::read.xlsx("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table01132020.xlsx",#CTC Event Table 11252019 wo Censor .xlsx",
+                                              sheet = "Sample IDs only ");
+                                    # sheetName = "Sample IDs only ");
+  dt_carT_sampleid_info = data.table(dt_carT_sampleid_info);
+  
+  dt_carT_sampleid_info2 = openxlsx::read.xlsx("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/CTC Event Table01132020.xlsx",#CTC Event Table 11252019 wo Censor .xlsx",
+                                              sheet = "Summary Table with Some Oligos");
+  dt_carT_sampleid_info2 = data.table(dt_carT_sampleid_info2);
+  pt_id_2_mrn = dt_carT_sampleid_info2[!duplicated(pt_id)]$MRN
+  names(pt_id_2_mrn) = dt_carT_sampleid_info2[!duplicated(pt_id)]$pt_id
+  
+  dt_carT_sampleid_info[,c("mrn_str","mrn"):=.(pt_id_2_mrn[pt_id], as.numeric(pt_id_2_mrn[pt_id])) ]
+  
+  #dt_carT_sampleid_info = dt_carT_sampleid_info[!is.na(p)]
+  
+  dt_carT_sampleid_info_m = melt.data.table(dt_carT_sampleid_info,id.vars = c("pt_id"),
+                                            measure.vars = c("Baseline.Sample.ID",
+                                                             "Week.1.Sample.ID",
+                                                             "Week.2.Sample.ID",
+                                                             "Week.3.Sample.ID",
+                                                             "Week.4.Sample.ID"),
+                                            variable.name = "time_group",
+                                            value.name = "sampleid",
+                                            na.rm = T);
+  
+
+  #sample ids with no time assignment:
+  #d_set_tsne2[!sampleid %in% dt_carT_sampleid_info_m$sampleid ]$sampleid
+  
+  
+    dt_carT_patient_info_with_sample_and_oligoID = merge(dt_carT_sampleid_info[is.na(Censor_reason), #Censor_YN=="N",
+                                                                            .(pt_id,
+                                                                              mrn,
+                                                                              mrn_str,
+                                                                              CR=`CR.(Y/N)`,
+                                                                              ORR=`ORR.(Y/N)`,
+                                                                              Toxicity=`Toxicity.(Y/N)`,
+                                                                              #CR=CR..Y.N.,
+                                                                              #ORR=ORR..Y.N..,
+                                                                              #Toxicity=Toxicity..Y.N.,
+                                                                              Cytokine.Release.Syndrome=`Cytokine.Release.Syndrome.(Y/N)`,
+                                                                              #Cytokine.Release.Syndrome..Y.N..,
+                                                                              ICANS_neurotoxicity = `ICANS.(Neurotoxicity)(Y/N)`,
+                                                                              #ICANS_neurotoxicity = ICANS..Neurotoxicity..Y.N..,
+                                                                              Disease.Class,
+                                                                              Disease,
+                                                                              antibiotic_prior=`Antibiotics.4.weeks.prior.to.CAR.T.cells.(Y/N)`,
+                                                                              antibiotic_post=`Antibiotics.4.weeks.post-CAR.T.cells.(Y/N)`,
+                                                                              Patient.Disease.Status.at.CAR,
+                                                                              CAR.Group)],
+                                                       dt_carT_sampleid_info_m[,.(pt_id,
+                                                                                  sampleid,
+                                                                                  time_group)])
+  
+  
+  dt_carT_patient_info_with_sample_and_oligoID[, CR_or_ORR := factor(ifelse(CR=="Y" | ORR=="Y","Y","N"),levels=c("Y","N"))]
+  
+  dt_carT_patient_info_with_sample_and_oligoID[,
+                                               time_group_simple :=factor(gsub("Sample.ID","",time_group))]
+  
+#   dt_carT_patient_info_with_sample_and_oligoID_time_stamp=Sys.time();
+#   cat("patient info loaded in variable:\n\tdt_carT_patient_info_with_sample_and_oligoID\n")
+# }else{
+#   if(as.numeric(difftime(Sys.time(), dt_carT_patient_info_with_sample_and_oligoID_time_stamp, units="min")) > 1 ){
+#     rm("dt_carT_patient_info_with_sample_and_oligoID_time_stamp");
+#     source('~/projects/human_microbiota/library/Melody/load_carT_patient_info.R');
+#   }else{
+#     cat("patient info already loaded in variable:\n\tdt_carT_patient_info_with_sample_and_oligoID\n") 
+#   }
+  cat("patient info loaded in variable:\n\tdt_carT_patient_info_with_sample_and_oligoID\n")
+  
+}
+```
+
+### upenn
+
+```{r}
+#Nov/04/2020
+#
+#Load UPenn. CART patients clinical data for patients with stool samples.
+#
+#
+
+if(!exists("dt_cart_stool_upen_samples_and_outcome")){
+  
+  dt_cart_stool_upen_clinical = openxlsx::read.xlsx("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/Microbiota DB_commercial CART_to send.xlsx",
+                                                    sheet= 1)
+  
+  dt_cart_stool_upen_clinical = data.table(dt_cart_stool_upen_clinical);
+  
+  dt_cart_stool_upen_samples = xlsx::read.xlsx("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/Project 11198 Sample Key.xlsx",
+                                               sheetIndex = 1);
+  dt_cart_stool_upen_samples = data.table(dt_cart_stool_upen_samples)
+  dt_cart_stool_upen_samples = dt_cart_stool_upen_samples[!is.na(Subject.ID)]
+  dt_cart_stool_upen_samples$NA. = NULL;
+  dt_cart_stool_upen_samples$NA..1 = NULL;
+  
+  dt_cart_stool_upen_samples_and_outcome = merge(dt_cart_stool_upen_samples[,.(sampleid=OligoID,pt_id=Subject.ID)],
+                                                 dt_cart_stool_upen_clinical[,.(pt_id=`pt_id.(de-identified)`,
+                                                                                CR=toupper(`CR(Y/N)`),
+                                                                                Tox=`Toxicity(Y/N)`)])
+  
+}
+
+print("Upen clincal+stool set is loaded in dt_cart_stool_upen_samples_and_outcome")
+
+
+
+```
+
+### italy
+
+```{r}
+#Oct/14/2020
+#
+#This scripts load Italian data, organizes it in antibiotics and clinical side. 
+#
+#
+
+if(!(exists("dt_CART_italy_antibiotics") & exists("dt_CART_italy_clinical") & exists("dt_CART_italy_samples_and_outcome"))){
+
+
+  dt_CART_italy = xlsx::read.xlsx("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/DATABASE CAR T 091020.xlsx",
+                                 sheetIndex = 1);
+  dt_CART_italy = data.table(dt_CART_italy);
+  setnames(dt_CART_italy,"pt_id.de.identified.","pid");
+  dt_CART_italy = dt_CART_italy[!is.na(pid)]
+  dt_CART_italy[, CR := ifelse(toupper(CR.Y.N.)=="Y",1,
+                               ifelse(toupper(CR.Y.N.)=="N",0,
+                               NA))]
+  dt_CART_italy[, Tox := ifelse(toupper(Toxicity.Y.N.)=="Y",1,
+                               ifelse(toupper(Toxicity.Y.N.)=="N",0,
+                                      NA))]
+  
+  dt_CART_italy_clinical = dt_CART_italy[,infusion_date:=Data.infusione..dd.mm.yy.]
+  
+  dt_CART_italy_antibiotics = fread("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/abx_data_john10-19-2020.csv")
+  setnames(dt_CART_italy_antibiotics,"P_ID","pid");
+  
+  dt_CART_italy_antibiotics[, drug_name := tolower(drug_name)]
+  dt_CART_italy_antibiotics[, drug_name := gsub("-","_",drug_name)]
+  dt_CART_italy_antibiotics[, drug_name := gsub("/","_",drug_name)]
+  
+  dt_CART_italy_antibiotics[, start_date:=as.Date(start_date,"%m/%d/%y")]
+  dt_CART_italy_antibiotics[, stop_date:=as.Date(stop_date,"%m/%d/%y")]
+  
+  # x=sort(tolower(unique(dt_CART_italy_antibiotics$drug_name)))
+  # x=gsub("-","_",x)
+  # x=unique(gsub("/","_",x))
+  
+  drug_name_clean_map = c("amoxicilina_ac.clavulanico"="amoxicillin",
+                          "amoxicillin clavulanate"="amoxicillin",
+                          "amoxicillin clavulanate _"="amoxicillin",
+                          "augmentin"="amoxicillin",
+                          "bactrim"="sulfamethoxazole_trimethoprim",
+                          "cefixima"="cefixime",
+                          "cefixoral"="cefixime",
+                          "ceftazidima_avibactam"="ceftazidime",
+                          "ceftriaxone vii somministrazione al"="ceftriaxone",
+                          "clarithromycin"="clarithromycin",
+                          "fosfomicina"="Fosfomycin",
+                          "levofloxacina"="levofloxacin",
+                          "teicoplanin"="teicoplanin",
+                          "tigeciclina"="tigecycline",
+                          "trimethoprim_sulfamethoxazole non_sop prophylaxis since diagnosis"="sulfamethoxazole_trimethoprim",
+                          "vancomicina"= "vancomycin.pending")
+  
+  for(i in 1:length(drug_name_clean_map)){
+    drug_name_cur = names(drug_name_clean_map)[i];
+    drug_name_clean_cur = drug_name_clean_map[i];
+    
+    dt_CART_italy_antibiotics[drug_name %in% drug_name_cur, drug_name := drug_name_clean_cur];
+  }
+  
+  #Adding sampleid and pid link here
+  
+  dt_CART_italy_samples = fread("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/Set 81 Samples.txt")
+  setnames(dt_CART_italy_samples,"pt_id","pid")
+  setnames(dt_CART_italy_samples,"SampleID","sampleid")
+  setnames(dt_CART_italy_samples,"OligoID","oligoid")
+  
+  dt_CART_italy_samples_and_outcome = merge(dt_CART_italy_samples[,.(pid,sampleid,oligoid,timepoint)],
+                                            dt_CART_italy_clinical[,.(pid,CR,Tox)],
+                                            all.x = T,
+                                            by="pid")
+  dt_CART_italy_samples_and_outcome[, CR:=.(ifelse(CR==1,"Y","N"))]
+  dt_CART_italy_samples_and_outcome[, Tox:=.(ifelse(Tox==1,"Y","N"))]
+  
+  
+}
+
+print("dt_CART_italy_clinical, dt_CART_italy_antibiotics and dt_CART_italy_samples_and_outcome are loaded!")
+
+```
+
+## only look at the baseline samples for now (and we also need to have the CR out)
+
+```{r}
+# the msk table 
+msk <- dt_carT_patient_info_with_sample_and_oligoID %>% 
+  filter(time_group_simple == 'Baseline.') 
+
+upenn <- dt_cart_stool_upen_samples_and_outcome %>% 
+  filter(!str_detect(sampleid, 'blank')) %>%  # two failed to amplify
+  filter(!is.na(CR)) # one has not reached the CR record point
+
+italy <- dt_CART_italy_samples_and_outcome %>% 
+  filter(timepoint == 'PRE INFUSION') %>% 
+  filter(!is.na(CR))  
+```
+
