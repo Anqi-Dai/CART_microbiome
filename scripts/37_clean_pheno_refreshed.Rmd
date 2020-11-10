@@ -288,19 +288,23 @@ italy <- italy %>%
 
 ```
 
+## write out the asv counts and seqs for picrust2
+
 ```{r}
 # write out the asv seq and cts to corresponding files
+# ITS NOT FILTERED BUT TO ALIGN WITH THE SNAKEFILE FILE NAMES
 library(seqinr)
 cts_fns <- list(msk = msk_cts,
                 italy = italy_cts,
                 upenn = upenn_cts)
+
 
 cts_fns %>% 
   imap(function(.x, .y){
     
     # the cts for the asv
     .x %>% 
-      write_tsv(str_glue('../data/picrust/input/{.y}_cts.tsv'))
+      write_tsv(str_glue('../data/picrust/input/filtered_counts_{.y}.tsv'))
     
     
     # the seqs for the asv
@@ -308,10 +312,121 @@ cts_fns %>%
         filter(asv_key %in% .x$asv_key)
 
     write.fasta(sequences = as.list(seqs$asv_sequence),
-              names = seqs$key,
-              file.out = str_glue('../data/picrust/input/{.y}_seqs.tsv'))
+              names = seqs$asv_key,
+              file.out = str_glue('../data/picrust/input/filtered_counts_asv_sequence_{.y}.tsv'))
   })
 ```
+ 
+## load the downloaded results from picrust2
 
+```{r}
+src <- tibble(
+  id = c('upenn','msk','italy'),
+  local_dir = str_glue('/Users/daia1/projects/CART_microbiome/data/picrust/output/{id}'),
+  pw_file = str_glue('daia1@lilac.mskcc.org:~/my_workdir/other_pipeline/picrust2/output/picrust2_out_{id}/pathways_out/path_abun_unstrat.tsv.gz'),
+  dl_pw = str_glue('scp {pw_file} {local_dir}'),
+  unzip_pw = str_glue('gunzip /Users/daia1/projects/CART_microbiome/data/picrust/output/{id}/path_abun_unstrat.tsv.gz')
+)
+# create local dir first
+src %>% 
+  mutate(mkdir_cmd = str_glue('mkdir {local_dir}')) %>% 
+  select(mkdir_cmd) %>% 
+  write_tsv('../data/mkdir.sh', col_names = F)
 
+src %>% 
+  select(dl_pw,  unzip_pw) %>% 
+  gather('fn', 'cmd') %>% 
+  select(cmd) %>% 
+  write_tsv('../data/downloding_pw.sh', col_names = F)
+```
+
+## comparison together and individually 
+
+Lump italy and msk together since there are only three baseline samples from italy, and also italy and msk observe CR at day 30.
+
+```{r}
+pw_msk <- read_tsv('../data/picrust/output/msk/path_abun_unstrat.tsv')
+pw_italy <- read_tsv('../data/picrust/output/italy/path_abun_unstrat.tsv')
+pw_upenn <- read_tsv('../data/picrust/output/upenn/path_abun_unstrat.tsv')
+
+# msk and italy
+pheno_mitaly <- bind_rows(
+  msk %>% 
+    select(sampleid, CR, Toxicity),
+  italy %>% 
+    select(sampleid = oligoid,
+           CR,
+           Toxicity = Tox)
+)
+
+pw_mitaly <- pw_msk %>% 
+  inner_join(pw_italy)
+
+pw_mitaly_or <- bind_cols(pw_mitaly[,1],pw_mitaly[,pheno_mitaly$sampleid]) 
+
+all.equal(colnames(pw_mitaly_or)[2:ncol(pw_mitaly_or)], pheno_mitaly$sampleid)
+
+# upenn
+pheno_upenn <- upenn %>% 
+  mutate(sampleid = as.character(sampleid)) %>% 
+  select(sampleid, CR, Toxicity = Tox)
+
+pw_upenn_or <- bind_cols(pw_upenn[,1],pw_upenn[,pheno_upenn$sampleid]) 
+
+all.equal(colnames(pw_upenn_or)[2:ncol(pw_upenn_or)], pheno_upenn$sampleid)
+
+# all of them
+pheno_all <- bind_rows(
+  pheno_mitaly,
+  pheno_upenn
+)
+
+pw_all <- pw_mitaly %>% 
+  inner_join(pw_upenn)
+
+pw_all_or <- bind_cols(pw_all[,1],pw_all[,pheno_all$sampleid]) 
+
+all.equal(colnames(pw_all_or)[2:ncol(pw_all_or)], pheno_all$sampleid)
+```
+```{r}
+pheno <- list(mitaly = pheno_mitaly,
+              upenn = pheno_upenn,
+              all = pheno_all)
+
+pheno %>% 
+  imap(~ select(.data = .x, CR) %>% 
+            t %>% 
+            write.table(str_glue('../data/lefse/{.y}__pheno_CR.txt'), sep = '\t', quote = F, row.names = T, col.names = F))
+
+pheno %>% 
+  imap(~ select(.data = .x, Toxicity) %>% 
+            t %>% 
+            write.table(str_glue('../data/lefse/{.y}__pheno_Toxicity.txt'), sep = '\t', quote = F, row.names = T, col.names = F))
+
+cts_or <- list(
+              mitaly = pw_mitaly_or,
+              upenn = pw_upenn_or,
+              all = pw_all_or
+)
+
+cts_or %>% 
+  imap(~ .x %>% write_tsv(str_glue('../data/lefse/{.y}_cts.tsv')))
+
+```
+
+```{r}
+# a script to bind those things and produce the correct format for the galaxy portal
+cts <- list.files('../data/lefse/', pattern = 'cts')
+pheno <- list.files('../data/lefse/', pattern = 'pheno')
+combi <- expand.grid(cts_ = cts,pheno_ = pheno) %>% 
+  mutate(cts_id = str_replace(cts_, '_cts.tsv','')) %>% 
+  mutate(pheno_id = str_replace(pheno_, '__.+$','')) %>% 
+  filter(cts_id == pheno_id) %>% 
+  mutate(grp = if_else(str_detect(pheno_, 'CR'), 'CR', 'tox')) %>% 
+  mutate(cmd = str_glue('cat {pheno_} {cts_} > {pheno_id}_{grp}.tsv'))
+
+combi %>% select(cmd) %>% 
+  write_tsv('../data/lefse/cat_table.sh', col_names = F)
+
+```
 
