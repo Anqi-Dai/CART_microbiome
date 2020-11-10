@@ -13,7 +13,11 @@ library(tidyverse)
 
 ## use Antonio's script to clean the 16s data meta info
 
+
+
 ### msk
+
+This table has the CR_d100
 
 ```{r}
 #Oct/16/2019
@@ -21,10 +25,8 @@ library(tidyverse)
 #Loading patient info for Melody's project.
 #
 #
-
 library('openxlsx');
 library(data.table);
-
 if(!exists("dt_carT_patient_info_with_sample_and_oligoID_time_stamp")){
   
   #Load patient info
@@ -59,7 +61,6 @@ if(!exists("dt_carT_patient_info_with_sample_and_oligoID_time_stamp")){
                                             value.name = "sampleid",
                                             na.rm = T);
   
-
   #sample ids with no time assignment:
   #d_set_tsne2[!sampleid %in% dt_carT_sampleid_info_m$sampleid ]$sampleid
   
@@ -236,6 +237,7 @@ print("dt_CART_italy_clinical, dt_CART_italy_antibiotics and dt_CART_italy_sampl
 msk <- dt_carT_patient_info_with_sample_and_oligoID %>% 
   filter(time_group_simple == 'Baseline.') 
 
+
 upenn <- dt_cart_stool_upen_samples_and_outcome %>% 
   filter(!str_detect(sampleid, 'blank')) %>%  # two failed to amplify
   filter(!is.na(CR)) # one has not reached the CR record point
@@ -244,4 +246,72 @@ italy <- dt_CART_italy_samples_and_outcome %>%
   filter(timepoint == 'PRE INFUSION') %>% 
   filter(!is.na(CR))  
 ```
+
+CR:
+day 30: msk and italy
+day 100: upenn
+
+Tox:
+day 30: all of them
+ 
+  
+## getting the asv counts of those samples 
+
+```{r}
+source('~/db_connect_simple.R')
+connect_database(config_file = '~/dbConfig.txt')
+
+get_table_from_database_predefined_filter('asv_counts_ag')
+get_table_from_database('asv_sequences_ag')
+```
+
+```{r}
+msk_cts <- asv_counts_ag %>% 
+  filter(sampleid %in% msk$sampleid) %>% 
+  select(asv_key, sampleid, count) %>% 
+  spread(key = 'sampleid' , value = 'count', fill = 0)
+
+# italy only has 3 in the db
+italy_cts <- asv_counts_ag %>% 
+  filter(sampleid %in% italy$oligoid) %>% 
+  select(asv_key, sampleid, count) %>% 
+  spread(key = 'sampleid' , value = 'count', fill = 0)
+
+upenn_cts <- asv_counts_ag %>% 
+  filter(sampleid %in% upenn$sampleid) %>% 
+  select(asv_key, sampleid, count) %>% 
+  spread(key = 'sampleid' , value = 'count', fill = 0)
+
+# update italy pheno table
+italy <- italy %>% 
+  filter(oligoid %in% asv_counts_ag$sampleid)
+
+```
+
+```{r}
+# write out the asv seq and cts to corresponding files
+library(seqinr)
+cts_fns <- list(msk = msk_cts,
+                italy = italy_cts,
+                upenn = upenn_cts)
+
+cts_fns %>% 
+  imap(function(.x, .y){
+    
+    # the cts for the asv
+    .x %>% 
+      write_tsv(str_glue('../data/picrust/input/{.y}_cts.tsv'))
+    
+    
+    # the seqs for the asv
+    seqs = asv_sequences_ag %>%
+        filter(asv_key %in% .x$asv_key)
+
+    write.fasta(sequences = as.list(seqs$asv_sequence),
+              names = seqs$key,
+              file.out = str_glue('../data/picrust/input/{.y}_seqs.tsv'))
+  })
+```
+
+
 
