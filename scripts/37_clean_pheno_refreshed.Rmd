@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(data.table)
 ```
 
 ## use Antonio's script to clean the 16s data meta info
@@ -211,10 +212,10 @@ if(!(exists("dt_CART_italy_antibiotics") & exists("dt_CART_italy_clinical") & ex
   
   #Adding sampleid and pid link here
   
-  dt_CART_italy_samples = fread("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/Set 81 Samples.txt")
+  dt_CART_italy_samples = fread("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/samples/opbg_sampleskey_11092020_with_oligoid.csv")
   setnames(dt_CART_italy_samples,"pt_id","pid")
-  setnames(dt_CART_italy_samples,"SampleID","sampleid")
-  setnames(dt_CART_italy_samples,"OligoID","oligoid")
+  #setnames(dt_CART_italy_samples,"SampleID","sampleid")
+  #setnames(dt_CART_italy_samples,"OligoID","oligoid")
   
   dt_CART_italy_samples_and_outcome = merge(dt_CART_italy_samples[,.(pid,sampleid,oligoid,timepoint)],
                                             dt_CART_italy_clinical[,.(pid,CR,Tox)],
@@ -228,7 +229,9 @@ if(!(exists("dt_CART_italy_antibiotics") & exists("dt_CART_italy_clinical") & ex
 
 print("dt_CART_italy_clinical, dt_CART_italy_antibiotics and dt_CART_italy_samples_and_outcome are loaded!")
 
+
 ```
+
 
 ## only look at the baseline samples for now (and we also need to have the CR out)
 
@@ -387,6 +390,21 @@ pw_all <- pw_mitaly %>%
 pw_all_or <- bind_cols(pw_all[,1],pw_all[,pheno_all$sampleid]) 
 
 all.equal(colnames(pw_all_or)[2:ncol(pw_all_or)], pheno_all$sampleid)
+
+# only msk data
+pheno_msk <-   msk %>% 
+    select(sampleid, CR, Toxicity)
+
+pheno_msk %>% 
+  select( Toxicity) %>% 
+            t %>% 
+            write.table(str_glue('../data/lefse/msk__pheno_Toxicity.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+
+pw_msk_or <- bind_cols(pw_msk[,1],pw_msk[,pheno_msk$sampleid]) 
+all.equal(colnames(pw_msk_or)[2:ncol(pw_msk_or)], pheno_msk$sampleid)
+
+pw_msk_or %>% 
+  write_tsv(str_glue('../data/lefse/msk_cts.tsv'))
 ```
 ```{r}
 pheno <- list(mitaly = pheno_mitaly,
@@ -429,4 +447,8 @@ combi %>% select(cmd) %>%
   write_tsv('../data/lefse/cat_table.sh', col_names = F)
 
 ```
+
+
+
+
 

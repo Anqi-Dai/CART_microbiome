@@ -1,0 +1,92 @@
+---
+title: "link the shotgun fid and the actual sample and outcome table"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+Actually the most important info with the sample: timepoint (so I know whether it is baseline) and the CR , Tox
+
+```{r}
+# the full italy samples and outcome joined from Antonio's two tables
+italy_samp_outcome <- dt_CART_italy_samples %>% 
+  full_join(dt_CART_italy_samples_and_outcome) %>% 
+  distinct()
+
+italy_samp_outcome %>% 
+  write_csv('../data/shotgun_input/shotgun_italy_samp_outcome.csv')
+
+# italy shotgun files
+italy_fn <- read_csv('../../Catalog/data/full_project_11308_files.csv') %>% 
+  distinct(sample_folder, .keep_all = T)
+
+# there are 4 dups, and need to be concatenated to run
+```
+
+
+```{r}
+samp_italy <- italy_fn %>% 
+  left_join(italy_samp_outcome %>% mutate(fid = str_glue('{pid}{timepoint}')))
+
+found1 <- samp_italy %>% 
+  filter(!is.na(sampleid))
+
+found2_df <- samp_italy %>% 
+  filter(is.na(sampleid)) %>% 
+  select(directory:fid) %>% 
+  left_join(  italy_samp_outcome %>% 
+    mutate(fid = str_replace_all(sampleid_raw, '\\+| |\\(|\\)|\\*','')  )
+) %>% 
+  distinct(fid, .keep_all = T) # there are two 16s samples CMT006 d172 and d168 both record as 180*
+
+found2 <- found2_df %>% 
+  filter(!is.na(sampleid))
+
+found3_df <- found2_df %>% 
+  filter(is.na(sampleid)) %>% 
+  select(directory:fid) %>% 
+  left_join(italy_samp_outcome %>% 
+  filter(pid == 'CMT006') %>% 
+  mutate(fid = str_replace_all(sampleid_raw, '\\+|\\(|\\)|\\*','')) %>% 
+  filter(timepoint %in% c(90, 14))  %>% 
+  mutate(fid = str_replace(fid, ' ','-'))) %>% 
+  # there is one sample CMT006 that missed the datepoint that is actually day -3
+  mutate(timepoint = if_else(fid == 'CMT006', -3.0, as.double(timepoint)),
+         CR = if_else(fid == 'CMT006', 'Y', CR),
+         Tox = if_else(fid == 'CMT006', 'N', Tox))
+
+
+```
+
+```{r}
+# finally all of them matched ...
+
+italy_pheno <- bind_rows(
+  found1,
+  found2,
+  found3_df
+) %>% 
+  select(-sample_folder) 
+
+italy_pheno %>% 
+  write_csv('../data/shotgun_pheno/italy_pheno_earlier.csv')
+```
+
+There are sevreral NA in the CR and tox in the baseline samples
+
+
+Can you please clarify what “-B” when it is noted on the patient ID (pid)?
+The “-B” for Patient ID CMT001B (sample ID “CMT001 PRE-BMT”) refers to a subsequent infusion for patient CMT001. Patient ID CMT001 after 42 days from his CAR T infusion received a BMT and it was recorded as Patient ID CMT001B and sampleID CMT001 PRE-BMT . Do not include Patient ID CMT001B and sampleID CMT001 PRE-BMT in the analysis
+
+Can you please note once more the patients that should be excluded?
+Exclude the patients in sponsored trial: CMT009; CMT011N; CMT013-B
+Exclude the patients CMT001B for the reason at point “1”
+
+so I think, CMT009; and ; CMT013-B ignore
+what about CMT012 and CMT004B

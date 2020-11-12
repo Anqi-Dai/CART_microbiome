@@ -45,6 +45,9 @@ head(phe_M_clean)
 # this is all of the baseline samples that has 16s.
 phe_M_clean %>% 
   write_csv('../data/cleaned_pheno/current_pheno.csv')
+
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv')
+table(pheno$CR)
 ```
 
 
