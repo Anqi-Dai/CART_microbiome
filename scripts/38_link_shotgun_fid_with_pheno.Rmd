@@ -11,7 +11,20 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
+## current shotgun lookup table 
+
+```{r}
+source('~/db_connect_simple.R')
+connect_database(config_file = '~/dbConfig.txt')
+get_table_from_database('shotgun_lookup_ad')
+
+list_table_from_database('bile')
+```
+
+
 Actually the most important info with the sample: timepoint (so I know whether it is baseline) and the CR , Tox
+
+## Italy data
 
 ```{r}
 # the full italy samples and outcome joined from Antonio's two tables
@@ -69,7 +82,7 @@ found3_df <- found2_df %>%
 
 italy_pheno <- bind_rows(
   found1,
-  found2,
+  found2, 
   found3_df
 ) %>% 
   select(-sample_folder) 
@@ -78,15 +91,56 @@ italy_pheno %>%
   write_csv('../data/shotgun_pheno/italy_pheno_earlier.csv')
 ```
 
-There are sevreral NA in the CR and tox in the baseline samples
+```{r}
+# fix some more problems in the table including the duplicated sampleids
+
+# now John has cleaned table and added a tab about ineligible patients 
+ineligible <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/Pt info/italy_essential_data_v4.xlsx', sheet = 2)
+
+italy <- read_csv('../data/shotgun_pheno/italy_pheno_earlier.csv') %>% 
+  # remove the row with many NA since it is a duplicate of CMT006-dm3
+  filter(!is.na(sampleid)) %>% 
+  # remove the ones that are ineligible
+  filter(!pid %in% ineligible$pt_id) %>% 
+  select(directory:fid, pid:sampleid, oligoid)
+
+# now load the outcome for each eligible patient
+eligible <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/Pt info/italy_essential_data_v4.xlsx', sheet = 1) %>% 
+  rename(pid = pt_id)
+
+italy_all <- italy %>% 
+  left_join(eligible) %>% 
+  filter(!is.na(disease)) # remove the ones that have NA since they are not in the eligible patients tab either
+
+# the sub table to be updated to shotgun lookup table
+italy_up <- italy_all %>% 
+  select(directory, projectID, sampleid, fid)  
 
 
-Can you please clarify what “-B” when it is noted on the patient ID (pid)?
-The “-B” for Patient ID CMT001B (sample ID “CMT001 PRE-BMT”) refers to a subsequent infusion for patient CMT001. Patient ID CMT001 after 42 days from his CAR T infusion received a BMT and it was recorded as Patient ID CMT001B and sampleID CMT001 PRE-BMT . Do not include Patient ID CMT001B and sampleID CMT001 PRE-BMT in the analysis
+```
 
-Can you please note once more the patients that should be excluded?
-Exclude the patients in sponsored trial: CMT009; CMT011N; CMT013-B
-Exclude the patients CMT001B for the reason at point “1”
 
-so I think, CMT009; and ; CMT013-B ignore
-what about CMT012 and CMT004B
+```{r}
+
+df %>% 
+  write_csv('/Volumes/vandenbrinklab/Angel_Dai/Full_human_shotgun_catalog/shotgun_italy_earlier.csv')
+```
+
+
+
+
+## Upenn data
+
+```{r}
+
+```
+
+
+
+## Update the new shotgun samples to the database table 
+
+```{r}
+source('../../../microbiome_db/SQL/scripts/upload_data_from_query_OTU_AD.R')
+upload_data_from_query_OTU(1) # changed the file path of the table getting uploaded 
+```
+

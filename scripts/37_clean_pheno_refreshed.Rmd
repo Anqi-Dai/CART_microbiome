@@ -126,7 +126,7 @@ if(!exists("dt_cart_stool_upen_samples_and_outcome")){
   
   dt_cart_stool_upen_clinical = data.table(dt_cart_stool_upen_clinical);
   
-  dt_cart_stool_upen_samples = xlsx::read.xlsx("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/Project 11198 Sample Key.xlsx",
+  dt_cart_stool_upen_samples = xlsx::read.xlsx("/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/samples/archive/Project 11198 Sample Key.xlsx",
                                                sheetIndex = 1);
   dt_cart_stool_upen_samples = data.table(dt_cart_stool_upen_samples)
   dt_cart_stool_upen_samples = dt_cart_stool_upen_samples[!is.na(Subject.ID)]
