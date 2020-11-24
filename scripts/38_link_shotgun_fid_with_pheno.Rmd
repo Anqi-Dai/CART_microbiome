@@ -112,6 +112,9 @@ italy_all <- italy %>%
   left_join(eligible) %>% 
   filter(!is.na(disease)) # remove the ones that have NA since they are not in the eligible patients tab either
 
+italy_all %>% 
+  write_csv('../data/shotgun_pheno/italy_all_earlier.csv')
+
 # the sub table to be updated to shotgun lookup table
 italy_up <- italy_all %>% 
   select(directory, projectID, sampleid, fid)  
@@ -119,27 +122,69 @@ italy_up <- italy_all %>%
 
 ```
 
-
-```{r}
-
-df %>% 
-  write_csv('/Volumes/vandenbrinklab/Angel_Dai/Full_human_shotgun_catalog/shotgun_italy_earlier.csv')
-```
-
-
-
-
 ## Upenn data
 
 ```{r}
+# get the file path of the shotgun files 
+upenn <- c('Project_11341')
+upenn2 <- tibble(
+  folder = '/Volumes/vandenBrinkLab/deep_sequencing'
+)
 
+upenn2_files <- upenn2 %>% 
+  pull(folder) %>% 
+  map_dfr(function(f){
+    upenn %>% 
+      set_names(upenn) %>% 
+      imap_dfr( ~ Sys.glob(str_glue('{f}/{..1}/*/*')) %>% 
+             data_frame %>% 
+              mutate(..2)) %>% 
+      rename(directory = names(.)[1],
+             projectID = names(.)[2])
+  }) %>% 
+  mutate(sample_folder = str_extract(directory, 'Sample_.+$'),
+         fid = str_replace(sample_folder, 'Sample_',''),
+         fid = str_replace(fid, '_IGO_.+$','')) %>% 
+  mutate(pid = str_replace(fid, 'MS_UPENN_','')) %>% 
+  mutate(pid = str_pad(pid, 2, side = 'left', pad = '0'))
+
+# the pheno of the ptb from John
+upenn <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/patients/upenn_essential_data_v3.xlsx', sheet = 2) %>% 
+  filter(!is.na(pt_id)) %>% 
+  mutate(pt_id = as.character(pt_id)) %>% 
+  mutate(pid = str_replace(pt_id, '^80',''))
+
+upenn_samp <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/samples/sample_mapping_UPenn.xlsx') %>% 
+  select(pt_id, OligoID) %>% 
+  mutate(pt_id = as.character(pt_id))
+
+upenn_all <- upenn2_files %>% 
+  left_join(upenn) %>% 
+  full_join(upenn_samp)
+
+upenn_all %>% 
+  write_csv('../data/shotgun_pheno/upenn_all_earlier.csv')
+
+upenn_up <- upenn_all %>% 
+  select(directory, projectID, OligoID, fid) %>% 
+  rename(sampleid = OligoID)
 ```
 
+```{r}
+# 11-24 to be uploaded 
+nov24_up <- bind_rows(upenn_up, italy_up)
+
+nov24_up %>% 
+  write_csv('/Volumes/vandenbrinklab/Angel_Dai/Full_human_shotgun_catalog/shotgun_cart_earlier.csv')
+```
 
 
 ## Update the new shotgun samples to the database table 
 
+sometimes it doesn't work you just need to restart R and run it again 
+
 ```{r}
+# change the d_set_input in the upload_data_from_query_OTU_AD.R script 
 source('../../../microbiome_db/SQL/scripts/upload_data_from_query_OTU_AD.R')
 upload_data_from_query_OTU(1) # changed the file path of the table getting uploaded 
 ```
