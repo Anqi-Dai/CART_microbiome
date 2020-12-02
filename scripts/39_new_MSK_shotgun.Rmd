@@ -1,0 +1,51 @@
+---
+title: "New MSK samples"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# check the sequencing files returned, how the fid is matched to sampleid, is there any duplicates etc
+proj <- c('Project_11454') # there are three failed QC so this is the correct number 
+
+folder <- '/Volumes/vandenBrinkLab/deep_sequencing'
+
+files <- folder %>% 
+  map_dfr(function(f){
+    proj %>% 
+      set_names(proj) %>% 
+      imap_dfr( ~ Sys.glob(str_glue('{f}/{..1}/*/*')) %>% 
+             as.data.frame %>% 
+              mutate(..2)) %>% 
+      rename(directory = names(.)[1],
+             projectID = names(.)[2])
+  }) %>% 
+  mutate(sample_folder = str_extract(directory, 'Sample_.+$'),
+         fid = str_replace(sample_folder, 'Sample_',''),
+         fid = str_replace(fid, '_IGO_.+$','')) %>% 
+  mutate(sampleid = fid) # the fid looks clean should be the sampleid 
+
+files %>% 
+  distinct(sampleid) %>% 
+  nrow
+```
+
+```{r}
+# check the sample patient pheno table organized by John
+# the first sheet is the eligible samples
+stb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/sample_table_msk.xlsx', sheet = 1)
+
+
+length(intersect(stb$sampleid, files$sampleid))
+
+files %>% 
+  write_csv('../data/shotgun_input/Project_11454_shotgun_samples.csv')
+```
+
