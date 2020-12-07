@@ -1,0 +1,28 @@
+---
+title: "combine all centers pheno"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+# all centers pheno file 
+# to get the baseline sampleid 
+I <- read_csv('../data/shotgun_pheno/italy_all_earlier.csv') %>% 
+  filter(timepoint < 0) %>% 
+  ungroup() %>% 
+  select(fid)
+
+P <- read_csv('../data/shotgun_pheno/upenn_all_earlier.csv') %>% select(fid)
+
+M <- read_csv('../data/shotgun_pheno/msk_all_pheno.csv') %>% select(fid)
+
+all_baseline <- bind_rows(I, M, P)
+```
+

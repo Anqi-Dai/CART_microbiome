@@ -51,6 +51,10 @@ ineligible <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiot
 
 pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') # the 33 used last year
 intersect(pheno$sampleid, ineligible$sampleid)  # 6 has become ineligible 
+
+setdiff(current_Baseline$sampleid, pheno$sampleid)
+
+missing <- c("2460A", "2563A", "1918C" ,"315"  )
 ```
 
 ## all MSK eligible baseline shotgun samples
@@ -67,12 +71,15 @@ ptb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/p
   mutate(mrn = as.numeric(mrn))
 
 pheno_msk <- current_Baseline %>% 
-  select(mrn:sampleid, fid) %>% 
+  select(mrn:sampleid, fid, directory) %>% 
   left_join(ptb)
 
 
 pheno_msk %>% 
   write_csv('../data/shotgun_pheno/msk_all_pheno.csv')
+
+pheno_msk %>% 
+  filter(sampleid %in% missing)
 ```
 
 
