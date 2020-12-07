@@ -35,20 +35,44 @@ files <- folder %>%
 files %>% 
   distinct(sampleid) %>% 
   nrow
+
+files %>% 
+  write_csv('../data/shotgun_input/Project_11454_shotgun_samples.csv')
+
+# although 20 returned but few can be used, the non-useable ones are from ineligible pts
 ```
 
 ```{r}
 # check the sample patient pheno table organized by John
 # the first sheet is the eligible samples
-stb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/sample_table_msk.xlsx', sheet = 1)
+# the below table has the most updated info organized by John
+stb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/sample_table_msk.xlsx', sheet = 1) 
+ineligible <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/sample_table_msk.xlsx', sheet = 2)
 
-
-length(intersect(stb$sampleid, files$sampleid))
-
-files %>% 
-  write_csv('../data/shotgun_input/Project_11454_shotgun_samples.csv')
+pheno <- read_csv('../data/cleaned_pheno/final_pheno.csv') # the 33 used last year
+intersect(pheno$sampleid, ineligible$sampleid)  # 6 has become ineligible 
 ```
+
+## all MSK eligible baseline shotgun samples
+
+2020-12-7   32 total for eligible samples in the baseline time point from MSK patients
 
 ```{r}
+current_Baseline <- stb %>% 
+  inner_join(shotgun_lookup_ad) %>% 
+  filter(str_detect(time_group, '^Baseline')) %>% 
+  distinct(sampleid, .keep_all = T)
 
+ptb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/patients/msk_essential_data_v4.xlsx') %>% 
+  mutate(mrn = as.numeric(mrn))
+
+pheno_msk <- current_Baseline %>% 
+  select(mrn:sampleid, fid) %>% 
+  left_join(ptb)
+
+
+pheno_msk %>% 
+  write_csv('../data/shotgun_pheno/msk_all_pheno.csv')
 ```
+
+
