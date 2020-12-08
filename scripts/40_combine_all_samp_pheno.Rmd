@@ -24,5 +24,8 @@ P <- read_csv('../data/shotgun_pheno/upenn_all_earlier.csv') %>% select(fid)
 M <- read_csv('../data/shotgun_pheno/msk_all_pheno.csv') %>% select(fid)
 
 all_baseline <- bind_rows(I, M, P)
+
+all_baseline %>% 
+  write_csv('../data/shotgun_input/samples_cart_all_msk_patial_italy_upenn.csv', col_names = F)
 ```
 
