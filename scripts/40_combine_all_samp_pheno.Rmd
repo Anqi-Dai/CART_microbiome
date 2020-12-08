@@ -29,3 +29,9 @@ all_baseline %>%
   write_csv('../data/shotgun_input/samples_cart_all_msk_patial_italy_upenn.csv', col_names = F)
 ```
 
+
+```{r}
+shotgun_lookup_ad %>% 
+  filter(sampleid == '2371A')
+```
+

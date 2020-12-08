@@ -1,0 +1,41 @@
+---
+title: "NEW Italy and Upenn samples"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+source('~/db_connect_simple.R')
+connect_database(config_file = '~/dbConfig.txt')
+get_table_from_database('shotgun_lookup_ad')
+```
+
+## Italy ones
+
+```{r}
+ineligible <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/samples/opbg_sampleskey_with_oligoid_v2.xlsx', sheet = 2)
+
+
+fntb_I <- shotgun_lookup_ad %>% 
+  filter(projectid == 'Project_11453' & str_detect(fid, "^CMT")) %>% 
+  # first see if that patient is eligible or not 
+  mutate(pid = str_extract(fid, 'CMT...')) %>% 
+  filter(! pid %in% ineligible$pt_id)  %>% 
+  filter(!str_detect(fid, '_$')) %>% # the dups
+  separate(fid, into = c('pre','day'), remove = F, convert = T, sep = '_') %>% 
+  filter(is.na(day)) %>% # remove the ones I'm sure to be after infusion
+  filter(fid != 'CMT029G0') %>%  # CMT029G0 is actually day 1 sample
+  select(-pre, -day)
+```
+```{r}
+fntb_P <- shotgun_lookup_ad %>%
+  filter(projectid == 'Project_11453' & !str_detect(fid, "^CMT"))
+```
+
