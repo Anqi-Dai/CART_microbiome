@@ -91,4 +91,10 @@ all %>%
 
 all %>% 
   count(center, cr_d30)
+
+# output a final format with only the most essential columns
+all %>% 
+  select(fid, cr_d30, toxicity, center) %>% 
+  mutate(cr_d30 = str_to_lower(cr_d30)) %>% 
+  write_csv('../data/shotgun_pheno/final_simplified.csv')
 ```

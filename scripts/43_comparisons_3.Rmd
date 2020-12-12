@@ -1,0 +1,35 @@
+---
+title: "Comparisons in three center"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+USING THE HUMANN2 RESULTS FOR NOW
+SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN
+
+```{r}
+pheno <- read_csv('../data/shotgun_pheno/final_simplified.csv') %>% 
+  gather('pheno', 'value', cr_d30:toxicity) 
+
+sub_phenos <- pheno %>% 
+  split(., list(.$center, .$pheno)) %>% 
+  purrr::imap(~ filter(.data = ., value != 'not_assessed'))
+```
+
+
+```{r}
+sub_phenos %>% 
+  imap(function(.x, .y){
+    select(.data = .x, value) %>% 
+      t() %>% 
+      write.table(str_glue('../data/shotgun_output/humann2/{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+  })
+```
+
