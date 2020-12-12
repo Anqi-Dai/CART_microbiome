@@ -19,19 +19,76 @@ I <- read_csv('../data/shotgun_pheno/italy_all_earlier.csv') %>%
   ungroup() %>% 
   select(fid)
 
+I2 <- read_csv('../data/shotgun_pheno/italy_all_later.csv') %>% 
+  select(fid)
+
 P <- read_csv('../data/shotgun_pheno/upenn_all_earlier.csv') %>% select(fid)
+
+P2 <- read_csv('../data/shotgun_pheno/upenn_all_later.csv') %>% 
+  select(fid)
 
 M <- read_csv('../data/shotgun_pheno/msk_all_pheno.csv') %>% select(fid)
 
-all_baseline <- bind_rows(I, M, P)
+all_baseline <- bind_rows(I,I2, M, P, P2)
 
 all_baseline %>% 
   write_csv('../data/shotgun_input/samples_cart_all_msk_patial_italy_upenn.csv', col_names = F)
 ```
 
+## the pheno label for the samples
 
 ```{r}
-shotgun_lookup_ad %>% 
-  filter(sampleid == '2371A')
-```
+I1 <- read_csv('../data/shotgun_pheno/italy_all_earlier.csv') %>% 
+  filter(timepoint < 0) %>% 
+  ungroup() %>% 
+  select(fid, cr_d30:toxicity)
 
+# the pheno lable for the I2!
+iptb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/patients/italy_essential_data_v4.xlsx', sheet = 1)
+I2_pheno <- I2 %>% 
+  rename(pt_id = pid) %>% 
+  left_join(iptb) %>% 
+  select(fid, cr_d30:toxicity)
+
+I_phe <- bind_rows(
+  I1, I2_pheno
+) %>% 
+  mutate(center = 'I')
+
+# upenn
+P_ptb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/patients/upenn_essential_data_v3.xlsx', sheet = 1)
+
+P_ptb_ineligible <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/patients/upenn_essential_data_v3.xlsx', sheet = 2)
+
+P_ <- bind_rows(
+  P %>% 
+    mutate(pt_id = str_replace(fid, 'MS_UPENN_','')) %>% select(fid, pt_id) %>% mutate(pt_id = as.numeric(pt_id)),
+  P2 %>% 
+    mutate(pt_id = as.numeric(fid)) %>% select(fid, pt_id)
+) %>% 
+  filter(! pt_id %in% P_ptb_ineligible$pt_id)
+
+P_phe <- P_ %>% 
+  left_join(P_ptb)  %>% 
+  select(fid, cr_d30:toxicity) %>% 
+  select(fid, cr_d30, cr_d100, cr_overall, toxicity)  %>% 
+  mutate(center = 'P')
+
+# MSK
+M_phe <- M %>% 
+  select(fid, cr_d30:toxicity) %>% 
+  mutate(center = 'M')
+
+# combined 
+
+all <- bind_rows(
+  M_phe, P_phe, I_phe
+)
+
+# a tally table
+all %>% 
+  count(center, toxicity)
+
+all %>% 
+  count(center, cr_d30)
+```

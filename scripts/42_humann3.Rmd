@@ -1,0 +1,73 @@
+---
+title: "humann2 VS humann3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+```
+
+```{r}
+hm3 <- list.files('../data/log/', full.names = T, pattern = '_humann3.log$')
+
+hm3_metric <- hm3 %>% 
+  set_names(hm3) %>% 
+  purrr::map(~ read_table(., col_names = F, col_types = 'c') %>% 
+  rename(content = names(.)[1]) %>% 
+  filter(str_detect(content, 'INFO: Unaligned')) %>% 
+  transmute(hm_perc = str_extract(content, 'after.+$')) %>% 
+  mutate(hm_perc = str_replace(hm_perc, 'after ','')) %>% 
+  separate(hm_perc, into = c('type','perc'), sep = ': ') %>% 
+  mutate(type = str_replace(type, ' ','_'),
+         perc = as.numeric(str_replace(perc, ' %',''))) %>% 
+  spread(key = 'type', value = 'perc')) %>% 
+  bind_rows(.id = 'sampleid') %>% 
+  # filter out the rows that have NA in translated column
+  filter(!is.na(translated_alignment)) %>% 
+  arrange(nucleotide_alignment) %>% 
+  mutate(grp = 'hm3')
+
+
+```
+
+```{r}
+hm2 <- hm3_metric %>% 
+  mutate(sampleid = str_replace(sampleid, 'humann3','humann2')) %>% 
+  pull(sampleid)
+
+hm2_metric <- hm2 %>% 
+  set_names(hm2) %>% 
+  purrr::map(~ read_table(., col_names = F, col_types = 'c') %>% 
+  rename(content = names(.)[1]) %>% 
+  filter(str_detect(content, 'INFO: Unaligned')) %>% 
+  transmute(hm_perc = str_extract(content, 'after.+$')) %>% 
+  mutate(hm_perc = str_replace(hm_perc, 'after ','')) %>% 
+  separate(hm_perc, into = c('type','perc'), sep = ': ') %>% 
+  mutate(type = str_replace(type, ' ','_'),
+         perc = as.numeric(str_replace(perc, ' %',''))) %>% 
+  spread(key = 'type', value = 'perc')) %>% 
+  bind_rows(.id = 'sampleid') %>% 
+  # filter out the rows that have NA in translated column
+  filter(!is.na(translated_alignment)) %>% 
+  arrange(nucleotide_alignment) %>% 
+  mutate(grp = 'hm2')
+```
+
+```{r}
+all <- bind_rows(hm2_metric, hm3_metric) %>% 
+  gather('type', 'value', nucleotide_alignment:translated_alignment) %>% 
+  mutate(samples = str_replace(sampleid, '_humann.+$','')) %>% 
+  mutate(samples = as.factor(samples)) %>% 
+  mutate(perc_aligned = 100-value)
+
+all %>% 
+  ggboxplot(x = 'grp', y = 'perc_aligned', color = 'grp', facet.by = 'type', add = 'jitter', line.color = "gray", palette = 'lancet')
+
+
+```
+

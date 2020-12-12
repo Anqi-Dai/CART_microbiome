@@ -34,8 +34,22 @@ fntb_I <- shotgun_lookup_ad %>%
   filter(fid != 'CMT029G0') %>%  # CMT029G0 is actually day 1 sample
   select(-pre, -day)
 ```
+
+```{r}
+fntb_I %>% 
+  write_csv('../data/shotgun_pheno/italy_all_later.csv')
+```
+
+
+## Upenn ones
+
 ```{r}
 fntb_P <- shotgun_lookup_ad %>%
   filter(projectid == 'Project_11453' & !str_detect(fid, "^CMT"))
+```
+
+```{r}
+fntb_P %>% 
+  write_csv('../data/shotgun_pheno/upenn_all_later.csv')
 ```
 
