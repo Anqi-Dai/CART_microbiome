@@ -61,4 +61,32 @@ cmds
 
 ```
 
+## the genefamilies regrouping
+
+```{r}
+fullgenefam <- read_tsv('../data/shotgun_output/humann2/humann2_genefamilies_CART.tsv') %>% 
+  select(!ends_with('_1'), MS_UPENN_1)
+
+gfcts <- sub_phenos %>% 
+  map(~ pull(.data = ., fid) ) %>% 
+  imap(~ fullgenefam %>% select(`# Gene Family`, matches(.x)) %>% 
+         write_tsv(str_glue('../data/shotgun_output/humann2/{.y}_gfcts.tsv'))) 
+```
+
+
+```{r}
+fns_ko <- list.files('../data/shotgun_output/humann2/', pattern = '_lefse_ready_ko.tsv')
+
+cmds_ko <- tibble(
+  fns = fns_ko
+) %>% 
+  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
+  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
+  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300')) %>% 
+  select(-fns) %>% 
+  gather() %>% 
+  select(value) %>% 
+  write_csv('../data/shotgun_output/humann2/lefse_cmd_ko.sh', col_names = F)
+```
+
 
