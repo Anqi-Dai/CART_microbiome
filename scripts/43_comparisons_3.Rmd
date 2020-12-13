@@ -25,6 +25,7 @@ sub_phenos <- pheno %>%
 
 
 ```{r}
+# the pheno for the different center and tox/CR_d30
 sub_phenos %>% 
   imap(function(.x, .y){
     select(.data = .x, value) %>% 
@@ -32,4 +33,17 @@ sub_phenos %>%
       write.table(str_glue('../data/shotgun_output/humann2/{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
   })
 ```
+
+```{r}
+# the pathway counts table
+full <- read_tsv('../data/shotgun_output/humann2/humann2_pathabundance_CART.tsv') %>% 
+  select(!ends_with('_1'), MS_UPENN_1)
+
+
+pcts <- sub_phenos %>% 
+  map(~ pull(.data = ., fid) ) %>% 
+  imap(~ full %>% select(`# Pathway`, matches(.x))) 
+```
+
+
 
