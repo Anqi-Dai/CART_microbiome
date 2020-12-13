@@ -23,7 +23,6 @@ sub_phenos <- pheno %>%
   purrr::imap(~ filter(.data = ., value != 'not_assessed'))
 ```
 
-
 ```{r}
 # the pheno for the different center and tox/CR_d30
 sub_phenos %>% 
@@ -42,8 +41,24 @@ full <- read_tsv('../data/shotgun_output/humann2/humann2_pathabundance_CART.tsv'
 
 pcts <- sub_phenos %>% 
   map(~ pull(.data = ., fid) ) %>% 
-  imap(~ full %>% select(`# Pathway`, matches(.x))) 
+  imap(~ full %>% select(`# Pathway`, matches(.x)) %>% 
+         write_tsv(str_glue('../data/shotgun_output/humann2/{.y}_pcts.tsv'))) 
 ```
 
+```{r}
+fns <- list.files('../data/shotgun_output/humann2/', pattern = '_lefse_ready.tsv')
+
+cmds <- tibble(
+  fns = fns
+) %>% 
+  transmute(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
+  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
+  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300')) %>% 
+  gather() %>% 
+  select(value) %>% 
+  write_csv('../data/shotgun_output/humann2/lefse_cmd.sh', col_names = F)
+cmds
+
+```
 
 
