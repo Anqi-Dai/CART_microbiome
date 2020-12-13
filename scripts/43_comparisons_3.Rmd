@@ -89,4 +89,97 @@ cmds_ko <- tibble(
   write_csv('../data/shotgun_output/humann2/lefse_cmd_ko.sh', col_names = F)
 ```
 
+## run both of them with all of the samples pulled together
+
+```{r}
+all_sub_pheno <- pheno %>% 
+  split(., list(.$pheno)) %>% 
+  purrr::imap(~ filter(.data = ., value != 'not_assessed'))
+
+all_sub_pheno %>% 
+  imap(function(.x, .y){
+    select(.data = .x, value) %>% 
+      t() %>% 
+      write.table(str_glue('../data/shotgun_output/humann2/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+  })
+
+
+
+all_pcts <- all_sub_pheno %>% 
+  map(~ pull(.data = ., fid) ) %>% 
+  imap(~ full %>% select(`# Pathway`, matches(.x)) %>% 
+         write_tsv(str_glue('../data/shotgun_output/humann2/pull_{.y}_pcts.tsv'))) 
+
+all_gfcts <- all_sub_pheno %>% 
+  map(~ pull(.data = ., fid) ) %>% 
+  imap(~ fullgenefam %>% select(`# Gene Family`, matches(.x)) %>% 
+         write_tsv(str_glue('../data/shotgun_output/humann2/pull_{.y}_gfcts.tsv'))) 
+```
+
+```{r}
+fns_pull <- list.files('../data/shotgun_output/humann2/', pattern = 'pull.+_lefse_ready.+$')
+
+cmds_pull <- tibble(
+  fns = fns_pull
+) %>% 
+  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
+  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
+  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300')) %>% 
+  select(-fns) %>% 
+  gather() %>% 
+  select(value) %>% 
+  write_csv('../data/shotgun_output/humann2/lefse_cmd_pull.sh', col_names = F)
+```
+
+```{r}
+# very quicly done some pcoa
+cts <- read_tsv('../data/shotgun_output/humann2/humann_final_out/pull_toxicity_pcts_cpm_unstratified.tsv') %>% 
+  gather('sampleid', 'value', names(.)[2]:names(.)[ncol(.)]) %>% 
+  rename(pathway =  names(.)[1]) %>% 
+  spread('pathway', 'value') %>% 
+  column_to_rownames('sampleid')
+
+dist_bl <- vegan::vegdist(cts, method = 'bray')
+
+bl_bc <- cmdscale(dist_bl, k = 2) 
+pheno <- read_csv('../data/shotgun_pheno/final_simplified.csv') %>% 
+  mutate(sampleid = fid)
+
+bl_bc %>% 
+    as.data.frame() %>% 
+    rownames_to_column('sampleid') %>% 
+    inner_join(pheno, by = 'sampleid') %>% 
+    ggpubr::ggscatter(x = 'V1', y = 'V2', color =  'center',  shape = 'toxicity') 
+```
+```{r}
+empty_samp <- read_tsv('../data/shotgun_output/humann2/humann_final_out/pull_toxicity_kocts_cpm_unstratified.tsv') %>% 
+  gather('sampleid', 'value', names(.)[2]:names(.)[ncol(.)]) %>% 
+  group_by(sampleid) %>% 
+  summarise(Sum = sum(value)) %>% 
+  filter(Sum == 0) %>% 
+  pull(sampleid)
+
+
+cts <- read_tsv('../data/shotgun_output/humann2/humann_final_out/pull_toxicity_kocts_cpm_unstratified.tsv') %>% 
+  gather('sampleid', 'value', names(.)[2]:names(.)[ncol(.)]) %>% 
+  rename(KO =  names(.)[1]) %>% 
+  filter(!sampleid %in% empty_samp) %>% 
+  spread('KO', 'value') %>% 
+  column_to_rownames('sampleid')
+
+
+  
+
+dist_bl <- vegan::vegdist(cts, method = 'bray')
+
+bl_bc <- cmdscale(dist_bl, k = 2) 
+pheno <- read_csv('../data/shotgun_pheno/final_simplified.csv') %>% 
+  mutate(sampleid = fid)
+
+bl_bc %>% 
+    as.data.frame() %>% 
+    rownames_to_column('sampleid') %>% 
+    inner_join(pheno, by = 'sampleid') %>% 
+    ggpubr::ggscatter(x = 'V1', y = 'V2', color =  'center',  shape = 'toxicity') 
+```
 
