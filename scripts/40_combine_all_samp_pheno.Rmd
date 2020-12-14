@@ -38,6 +38,17 @@ all_baseline %>%
 ## the pheno label for the samples
 
 ```{r}
+I2 <- read_csv('../data/shotgun_pheno/italy_all_later.csv')
+
+P <- read_csv('../data/shotgun_pheno/upenn_all_earlier.csv') 
+
+P2 <- read_csv('../data/shotgun_pheno/upenn_all_later.csv') 
+
+M <- read_csv('../data/shotgun_pheno/msk_all_pheno.csv')
+```
+
+
+```{r}
 I1 <- read_csv('../data/shotgun_pheno/italy_all_earlier.csv') %>% 
   filter(timepoint < 0) %>% 
   ungroup() %>% 
@@ -97,4 +108,10 @@ all %>%
   select(fid, cr_d30, toxicity, center) %>% 
   mutate(cr_d30 = str_to_lower(cr_d30)) %>% 
   write_csv('../data/shotgun_pheno/final_simplified.csv')
+
+all %>% 
+  write_csv('../data/shotgun_pheno/final_comprehensive.csv')
+
+all %>% 
+  write_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/pheno_data_CR_toxicity_comprehensive.csv')
 ```
