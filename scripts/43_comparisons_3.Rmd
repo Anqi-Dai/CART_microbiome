@@ -11,12 +11,25 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
-USING THE HUMANN2 RESULTS FOR NOW
 SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN
 
 ```{r}
+# a tally of the table
+all <- read_csv('../data/shotgun_pheno/final_simplified.csv') 
+
+all %>% 
+  split(.$center) %>% 
+  map_dfr(~ count(x = ., cr_d100), .id = 'center')
+
+all %>% 
+  count(toxicity)
+
+```
+
+
+```{r}
 pheno <- read_csv('../data/shotgun_pheno/final_simplified.csv') %>% 
-  gather('pheno', 'value', cr_d30:toxicity) 
+  gather('pheno', 'value', cr_d100:toxicity) 
 
 sub_phenos <- pheno %>% 
   split(., list(.$center, .$pheno)) %>% 
@@ -29,64 +42,33 @@ sub_phenos %>%
   imap(function(.x, .y){
     select(.data = .x, value) %>% 
       t() %>% 
-      write.table(str_glue('../data/shotgun_output/humann2/{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+      write.table(str_glue('../data/shotgun_output/humann3/{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
   })
 ```
 
 ```{r}
 # the pathway counts table
-full <- read_tsv('../data/shotgun_output/humann2/humann2_pathabundance_CART.tsv') %>% 
-  select(!ends_with('_1'), MS_UPENN_1)
-
+full <- read_tsv('../data/shotgun_output/humann3_tsv/humann3_pathabundance_CART.tsv')  %>% 
+  rename_all(funs(str_replace(., '^CART_','')))  %>% 
+  rename_all(funs(str_replace(., '_humann3$','')))
 
 pcts <- sub_phenos %>% 
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ full %>% select(`# Pathway`, matches(.x)) %>% 
-         write_tsv(str_glue('../data/shotgun_output/humann2/{.y}_pcts.tsv'))) 
-```
-
-```{r}
-fns <- list.files('../data/shotgun_output/humann2/', pattern = '_lefse_ready.tsv')
-
-cmds <- tibble(
-  fns = fns
-) %>% 
-  transmute(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
-  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
-  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300')) %>% 
-  gather() %>% 
-  select(value) %>% 
-  write_csv('../data/shotgun_output/humann2/lefse_cmd.sh', col_names = F)
-cmds
-
+         write_tsv(str_glue('../data/shotgun_output/humann3/{.y}_pcts.tsv'))) 
 ```
 
 ## the genefamilies regrouping
 
 ```{r}
-fullgenefam <- read_tsv('../data/shotgun_output/humann2/humann2_genefamilies_CART.tsv') %>% 
-  select(!ends_with('_1'), MS_UPENN_1)
+fullgenefam <- read_tsv('../data/shotgun_output/humann3_tsv/humann3_genefamilies_CART.tsv')  %>% 
+  rename_all(funs(str_replace(., '^CART_','')))  %>% 
+  rename_all(funs(str_replace(., '_humann3$','')))
 
 gfcts <- sub_phenos %>% 
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ fullgenefam %>% select(`# Gene Family`, matches(.x)) %>% 
-         write_tsv(str_glue('../data/shotgun_output/humann2/{.y}_gfcts.tsv'))) 
-```
-
-
-```{r}
-fns_ko <- list.files('../data/shotgun_output/humann2/', pattern = '_lefse_ready_ko.tsv')
-
-cmds_ko <- tibble(
-  fns = fns_ko
-) %>% 
-  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
-  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
-  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300')) %>% 
-  select(-fns) %>% 
-  gather() %>% 
-  select(value) %>% 
-  write_csv('../data/shotgun_output/humann2/lefse_cmd_ko.sh', col_names = F)
+         write_tsv(str_glue('../data/shotgun_output/humann3/{.y}_gfcts.tsv'))) 
 ```
 
 ## run both of them with all of the samples pulled together
@@ -100,7 +82,7 @@ all_sub_pheno %>%
   imap(function(.x, .y){
     select(.data = .x, value) %>% 
       t() %>% 
-      write.table(str_glue('../data/shotgun_output/humann2/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+      write.table(str_glue('../data/shotgun_output/humann3/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
   })
 
 
@@ -108,19 +90,23 @@ all_sub_pheno %>%
 all_pcts <- all_sub_pheno %>% 
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ full %>% select(`# Pathway`, matches(.x)) %>% 
-         write_tsv(str_glue('../data/shotgun_output/humann2/pull_{.y}_pcts.tsv'))) 
+         write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_pcts.tsv'))) 
 
 all_gfcts <- all_sub_pheno %>% 
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ fullgenefam %>% select(`# Gene Family`, matches(.x)) %>% 
-         write_tsv(str_glue('../data/shotgun_output/humann2/pull_{.y}_gfcts.tsv'))) 
+         write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_gfcts.tsv'))) 
 ```
 
-```{r}
-fns_pull <- list.files('../data/shotgun_output/humann2/', pattern = 'pull.+_lefse_ready.+$')
+## generate command to run lefse in py2 environment
 
-cmds_pull <- tibble(
-  fns = fns_pull
+cuz can't get them thru snakemake
+
+```{r}
+fns <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready')
+
+cmds <- tibble(
+  fns = fns
 ) %>% 
   mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
   mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
@@ -128,8 +114,11 @@ cmds_pull <- tibble(
   select(-fns) %>% 
   gather() %>% 
   select(value) %>% 
-  write_csv('../data/shotgun_output/humann2/lefse_cmd_pull.sh', col_names = F)
+  write_csv('../data/shotgun_output/humann3/lefse_run_cmd.sh', col_names = F)
 ```
+
+
+## PCOA to see if batch effects
 
 ```{r}
 # very quicly done some pcoa
