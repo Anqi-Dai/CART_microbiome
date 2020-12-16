@@ -51,21 +51,24 @@ M <- read_csv('../data/shotgun_pheno/msk_all_pheno.csv')
 ```{r}
 I1 <- read_csv('../data/shotgun_pheno/italy_all_earlier.csv') %>% 
   filter(timepoint < 0) %>% 
-  ungroup() %>% 
-  select(fid, cr_d30:toxicity)
+  ungroup() 
 
 # the pheno lable for the I2!
 iptb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/patients/italy_essential_data_v4.xlsx', sheet = 1)
 I2_pheno <- I2 %>% 
   rename(pt_id = pid) %>% 
-  left_join(iptb) %>% 
-  select(fid, cr_d30:toxicity)
+  left_join(iptb) 
 
 I_phe <- bind_rows(
-  I1, I2_pheno
+  I1 %>% 
+    select(fid, pt_id = pid, infusion_date:last_followup), 
+  I2_pheno %>% 
+    select(fid, pt_id, infusion_date:last_followup)
 ) %>% 
   mutate(center = 'I')
+```
 
+```{r}
 # upenn
 P_ptb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/patients/upenn_essential_data_v3.xlsx', sheet = 1)
 
@@ -81,49 +84,85 @@ P_ <- bind_rows(
 
 P_phe <- P_ %>% 
   left_join(P_ptb)  %>% 
-  select(fid, cr_d30:toxicity) %>% 
-  select(fid, cr_d30, cr_d100, cr_overall, toxicity)  %>% 
-  mutate(center = 'P')
+  mutate(center = 'P') %>% 
+  select(colnames(I_phe))
+```
 
+
+```{r}
 # MSK
 M_phe <- M %>% 
-  select(fid, cr_d30:toxicity) %>% 
-  mutate(center = 'M')
+  mutate(center = 'M',
+         pt_id = mrn) %>% 
+  select(colnames(I_phe))
+```
 
+
+```{r}
 # combined 
 
 all <- bind_rows(
-  M_phe, P_phe, I_phe
-)
+  M_phe %>% mutate(pt_id = as.character(pt_id),
+                   icansgrade = as.character(icansgrade)), 
+  P_phe %>% 
+    mutate(pt_id = as.character(pt_id)), 
+  I_phe %>% 
+    mutate(icansgrade = as.character(icansgrade))
+) %>% 
+  mutate(crsgrade = as.character(crsgrade))
 
-# a tally table
+# save a copy to the server for John
 all %>% 
-  count(center, toxicity)
+  write_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/pheno_data_comprehensive.csv')
 
-all %>% 
-  count(center, cr_d30)
-
-# output a final format with only the most essential columns
-all %>% 
-  select(fid, cr_d30, toxicity, center) %>% 
-  mutate(cr_d30 = str_to_lower(cr_d30)) %>% 
-  write_csv('../data/shotgun_pheno/final_simplified.csv')
-
+# save one for my own
 all %>% 
   write_csv('../data/shotgun_pheno/final_comprehensive.csv')
+```
 
-all %>% 
-  write_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/pheno_data_CR_toxicity_comprehensive.csv')
+## tally of the table
 
-all_pheno <- read_csv('../data/shotgun_pheno/final_comprehensive.csv')
+```{r}
+# make proper columns factors as they should be 
+
+should_be_factors <- all %>% 
+  select_if(is.character) %>% 
+  select(-fid, -pt_id) %>% 
+  colnames()
+
+ALL <- all %>% 
+  mutate_at(should_be_factors, as.factor)
+
+
+
 ```
 
 ```{r}
-# as the CR we currently want to look at the day 100 respone only
-all_pheno %>% 
-  select(fid, cr_d100, toxicity, center) %>% 
-  write_csv('../data/shotgun_pheno/final_simplified.csv')
+ALL %>% 
+  split(.$center) %>% 
+  map_dfr(~ count(x = ., icans), .id = 'center')
+```
+```{r}
+ALL %>% 
+  split(.$center) %>% 
+  map_dfr(~ count(x = ., crs), .id = 'center')
 ```
 
+```{r}
+outcome <- c('cr_d100','toxicity','icans','crs')
 
+ALL %>% 
+  select(outcome) %>% 
+  map(function(col){
+    ALL %>% 
+  split(.$center) %>% 
+  map_dfr(~ count(x = ., col), .id = 'center')
+  })
+
+for (i in 1:length(outcome)){
+  ALL %>% 
+    split(.$center) %>% 
+    map_dfr(~ count(x = ., outcome[1]), .id = 'center')
+}
+```
 

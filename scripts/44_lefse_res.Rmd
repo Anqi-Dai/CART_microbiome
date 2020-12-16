@@ -11,3 +11,10 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
+```{r}
+ret <- tibble(
+  fn = list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready.+res$', full.names = T)
+) %>% 
+  mutate(grp = if_else(str_detect(fn, 'pcts'), 'pathway', 'KO'))
+```
+
