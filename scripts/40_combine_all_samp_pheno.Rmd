@@ -124,7 +124,6 @@ all %>%
 
 ```{r}
 # make proper columns factors as they should be 
-
 should_be_factors <- all %>% 
   select_if(is.character) %>% 
   select(-fid, -pt_id) %>% 
@@ -134,35 +133,26 @@ ALL <- all %>%
   mutate_at(should_be_factors, as.factor)
 
 
-
+ALL %>% summary
 ```
 
-```{r}
-ALL %>% 
-  split(.$center) %>% 
-  map_dfr(~ count(x = ., icans), .id = 'center')
-```
-```{r}
-ALL %>% 
-  split(.$center) %>% 
-  map_dfr(~ count(x = ., crs), .id = 'center')
-```
 
 ```{r}
 outcome <- c('cr_d100','toxicity','icans','crs')
 
 ALL %>% 
-  select(outcome) %>% 
-  map(function(col){
-    ALL %>% 
-  split(.$center) %>% 
-  map_dfr(~ count(x = ., col), .id = 'center')
-  })
+  count(center, cr_d100)
 
-for (i in 1:length(outcome)){
-  ALL %>% 
-    split(.$center) %>% 
-    map_dfr(~ count(x = ., outcome[1]), .id = 'center')
-}
+ALL %>% 
+  count(center, toxicity)
+
+ALL %>% 
+  count(center, icans)
+
+ALL %>% 
+  count(center, crs)
+
+tb <- ALL %>% 
+  select(center, outcome) 
 ```
-
+ 

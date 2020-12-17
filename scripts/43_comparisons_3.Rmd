@@ -13,19 +13,6 @@ library(tidyverse)
 
 SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN
 
-```{r}
-# a tally of the table
-all <- read_csv('../data/shotgun_pheno/final_simplified.csv') 
-
-all %>% 
-  split(.$center) %>% 
-  map_dfr(~ count(x = ., cr_d100), .id = 'center')
-
-all %>% 
-  count(toxicity)
-
-```
-
 
 ```{r}
 pheno <- read_csv('../data/shotgun_pheno/final_simplified.csv') %>% 
