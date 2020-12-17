@@ -1,2 +1,0 @@
-cat ../data/lefse_genefam/pheno__CR.txt ../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified_reordered.tsv > ../data/lefse_genefam/genefam_abundace_pheno__CR.tsv
-cat ../data/lefse_genefam/pheno__Toxicity.txt ../data/humann2_res/genefamily_split_KO/humann2_genefamilies_KO_regroup_relab_stratified_reordered.tsv > ../data/lefse_genefam/genefam_abundace_pheno__Toxicity.tsv
