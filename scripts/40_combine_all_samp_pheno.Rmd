@@ -118,6 +118,8 @@ all %>%
 # save one for my own
 all %>% 
   write_csv('../data/shotgun_pheno/final_comprehensive.csv')
+
+all <- read_csv('../data/shotgun_pheno/final_comprehensive.csv')
 ```
 
 ## tally of the table
@@ -155,4 +157,28 @@ ALL %>%
 tb <- ALL %>% 
   select(center, outcome) 
 ```
+
+```{r}
+tally <- ALL %>% 
+  select(center, outcome) %>% 
+  mutate_if(is.factor, as.character) %>% 
+  gather('metric', 'value', cr_d100 : crs) %>% 
+  count(center, metric, value) %>% 
+  filter(value != 'not_assessed') %>% 
+  spread('metric', 'n', fill = 0)
+```
+
+
+```{r}
+library(kableExtra)
+
+kbl(tally, caption = "") %>%
+  kable_classic_2( full_width = F) %>%
+  pack_rows("Group Italy", 1, 2) %>%
+  pack_rows("Group MSK", 3, 4) %>% 
+  pack_rows("Group UPENN", 5, 6) 
+
+
+```
+ 
  

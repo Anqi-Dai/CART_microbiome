@@ -15,8 +15,9 @@ SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN
 
 
 ```{r}
-pheno <- read_csv('../data/shotgun_pheno/final_simplified.csv') %>% 
-  gather('pheno', 'value', cr_d100:toxicity) 
+pheno <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>% 
+  select(fid, center, cr_d100, toxicity, icans, crs) %>% 
+  gather('pheno', 'value', cr_d100:crs) 
 
 sub_phenos <- pheno %>% 
   split(., list(.$center, .$pheno)) %>% 
@@ -73,12 +74,14 @@ all_sub_pheno %>%
   })
 
 
-
 all_pcts <- all_sub_pheno %>% 
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ full %>% select(`# Pathway`, matches(.x)) %>% 
-         write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_pcts.tsv'))) 
+         write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_pcts.tsv')))
+```
 
+
+```{r}
 all_gfcts <- all_sub_pheno %>% 
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ fullgenefam %>% select(`# Gene Family`, matches(.x)) %>% 
@@ -90,7 +93,7 @@ all_gfcts <- all_sub_pheno %>%
 cuz can't get them thru snakemake
 
 ```{r}
-fns <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready')
+fns <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_pcts.tsv$')
 
 cmds <- tibble(
   fns = fns
@@ -102,6 +105,41 @@ cmds <- tibble(
   gather() %>% 
   select(value) %>% 
   write_csv('../data/shotgun_output/humann3/lefse_run_cmd.sh', col_names = F)
+```
+
+
+## The taxa relative abundance from the shotgun data using metaphlan
+
+```{r}
+taxa <- read_tsv('../data/shotgun_output/metaphlan/merged_abundance_table.txt', skip = 1)  %>% 
+  rename_all(funs(str_replace(., '_profile$','')))
+
+tcts <- sub_phenos %>% 
+  map(~ pull(.data = ., fid) ) %>% 
+  imap(~ taxa %>% select(clade_name, matches(.x)) %>% 
+         write_tsv(str_glue('../data/shotgun_output/humann3/{.y}_tcts.tsv'))) 
+
+all_tcts <- all_sub_pheno %>% 
+  map(~ pull(.data = ., fid) ) %>% 
+  imap(~ taxa %>% select(clade_name, matches(.x)) %>% 
+         write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_tcts.tsv')))
+```
+
+```{r}
+# run lefse
+fns <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_tcts.tsv$')
+
+cmds <- tibble(
+  fns = fns
+) %>% 
+  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
+  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
+  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300')) %>% 
+  mutate(clado_cmd = str_glue('plot_cladogram.py {fns}.res {fns}_clado.png  --label_font_size 4 --dpi 300 --format png --title {fns}')) %>% 
+  select(-fns) %>% 
+  gather() %>% 
+  select(value) %>% 
+  write_csv('../data/shotgun_output/humann3/lefse_run_cmd_taxa.sh', col_names = F)
 ```
 
 
