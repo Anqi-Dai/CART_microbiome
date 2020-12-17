@@ -11,3 +11,36 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
+Create a function of ggplot viewing the lefse res files and also venn to see the overlap and whatnot of the different comparisons
+
+```{r}
+pres <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_pcts.tsv.res$', full.names = T)
+
+pres_all <- pres %>% 
+  set_names(pres) %>% 
+  map_dfr(~ read_tsv(., col_names = c('pathway','xx','direction','score','pval')) %>% 
+        filter(!is.na(score)), .id = 'pres') %>% 
+  mutate(pres = str_replace(pres, '^.+//',''),
+         pres = str_replace(pres, '_lefse.+$',''))  %>% 
+  rename(grp = pres) %>% 
+  mutate(grp = str_replace(grp, 'pull_','pull\\.')) %>% 
+  separate(grp, into = c('cohort','outcome'), sep = '\\.')
+
+pres_all_list <- pres_all %>% 
+  split(., list(.$outcome)) %>% 
+  split(~ split())
+  map(~ pull(.data = ., pathway))
+
+all_names <- names(pres_all_list) 
+icans <- all_names[str_detect(all_names, 'icans')]
+icans_list <- pres_all_list %>% 
+  pluck(icans)
+```
+
+```{r}
+library(ggvenn)
+
+
+ggvenn(pres_all_list[[icans]])
+```
+
