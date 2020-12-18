@@ -27,20 +27,28 @@ pres_all <- pres %>%
   separate(grp, into = c('cohort','outcome'), sep = '\\.')
 
 pres_all_list <- pres_all %>% 
-  split(., list(.$outcome)) %>% 
-  split(~ split())
-  map(~ pull(.data = ., pathway))
+  split(., list(.$cohort, .$outcome )) %>% 
+  map(~ pull(.data = ., pathway)) %>% 
+  compact()
 
-all_names <- names(pres_all_list) 
-icans <- all_names[str_detect(all_names, 'icans')]
-icans_list <- pres_all_list %>% 
-  pluck(icans)
+vars <- pres_all %>% 
+  distinct(outcome) %>% 
+  pull(outcome)
+
+pres_all_list_every <- vars %>% 
+  set_names(vars) %>% 
+  map(function(var){
+    pres_all_list %>% 
+        keep(.p = str_detect(names(.), var))
+  } )
 ```
 
 ```{r}
 library(ggvenn)
 
-
-ggvenn(pres_all_list[[icans]])
+pres_all_list_every %>% 
+  imap(~ ggvenn(.x) +
+         #labs(title = str_glue('{.y}')) +
+          ggsave(str_glue('../figs/venn_pathway_{.y}.pdf'), width = 7, height = 4))
 ```
 
