@@ -9,46 +9,52 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(ggvenn)
 ```
 
 Create a function of ggplot viewing the lefse res files and also venn to see the overlap and whatnot of the different comparisons
 
 ```{r}
-pres <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_pcts.tsv.res$', full.names = T)
+res <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_.cts.tsv.res$', full.names = T)
 
-pres_all <- pres %>% 
-  set_names(pres) %>% 
-  map_dfr(~ read_tsv(., col_names = c('pathway','xx','direction','score','pval')) %>% 
-        filter(!is.na(score)), .id = 'pres') %>% 
-  mutate(pres = str_replace(pres, '^.+//',''),
-         pres = str_replace(pres, '_lefse.+$',''))  %>% 
-  rename(grp = pres) %>% 
+res_all <- res %>% 
+  set_names(res) %>% 
+  map_dfr(~ read_tsv(., col_names = c('feature','xx','direction','score','pval')) %>% 
+        filter(!is.na(score)), .id = 'res') %>% 
+  mutate(tbl = if_else(str_detect(res, 'pcts'), 'pathway', 'taxa')) %>% 
+  mutate(res = str_replace(res, '^.+//',''),
+         res = str_replace(res, '_lefse.+$',''))  %>% 
+  rename(grp = res) %>% 
   mutate(grp = str_replace(grp, 'pull_','pull\\.')) %>% 
   separate(grp, into = c('cohort','outcome'), sep = '\\.')
 
-pres_all_list <- pres_all %>% 
-  split(., list(.$cohort, .$outcome )) %>% 
-  map(~ pull(.data = ., pathway)) %>% 
-  compact()
+res_all_list <- res_all %>% 
+  split(.$tbl) %>% 
+  map(~split(., list(.$cohort, .$outcome )) %>% 
+  map(~ pull(.data = ., feature)) %>% 
+  compact())
+  
 
-vars <- pres_all %>% 
+vars <- res_all %>% 
   distinct(outcome) %>% 
   pull(outcome)
 
-pres_all_list_every <- vars %>% 
-  set_names(vars) %>% 
-  map(function(var){
-    pres_all_list %>% 
-        keep(.p = str_detect(names(.), var))
-  } )
-```
 
-```{r}
-library(ggvenn)
+tbs <- names(res_all_list)
 
-pres_all_list_every %>% 
-  imap(~ ggvenn(.x) +
-         #labs(title = str_glue('{.y}')) +
-          ggsave(str_glue('../figs/venn_pathway_{.y}.pdf'), width = 7, height = 4))
+tbs %>% 
+  set_names(tbs) %>% 
+  map(function(tb){
+    vars %>% 
+      set_names(vars) %>% 
+      map(function(var){
+        res_all_list %>% 
+          pluck(tb) %>% 
+          keep(.p = str_detect(names(.), var))
+  } ) %>% 
+      imap(~ ggvenn(.x) +
+             labs(title = str_glue('{tb}')) +
+          ggsave(str_glue('../figs/{tb}_venn_{.y}.pdf'), width = 7, height = 4))
+  })
 ```
 
