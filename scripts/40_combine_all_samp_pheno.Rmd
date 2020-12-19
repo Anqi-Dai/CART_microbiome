@@ -162,21 +162,37 @@ tb <- ALL %>%
 tally <- ALL %>% 
   select(center, outcome) %>% 
   mutate_if(is.factor, as.character) %>% 
-  gather('metric', 'value', cr_d100 : crs) %>% 
+  gather('metric', 'value', cr_d100 : crs) 
+  
+
+individual <- tally %>% 
   count(center, metric, value) %>% 
   filter(value != 'not_assessed') %>% 
   spread('metric', 'n', fill = 0)
+
+pull_ <- tally %>% 
+  count(metric, value)  %>% 
+  filter(value != 'not_assessed') %>% 
+  mutate(center = 'pull') %>% 
+  spread('metric', 'n', fill = 0) %>% 
+  select(colnames(individual))
+
+tally_all <- bind_rows(
+  individual, pull_
+)
+  
 ```
 
 
 ```{r}
 library(kableExtra)
 
-kbl(tally, caption = "") %>%
-  kable_classic_2( full_width = F) %>%
+kbl(tally_all, caption = "") %>%
+  kable_minimal( full_width = F) %>%
   pack_rows("Group Italy", 1, 2) %>%
   pack_rows("Group MSK", 3, 4) %>% 
-  pack_rows("Group UPENN", 5, 6) 
+  pack_rows("Group UPENN", 5, 6)  %>% 
+  pack_rows("Group ALL", 7, 8)
 
 
 ```

@@ -14,6 +14,9 @@ library(ggvenn)
 
 Create a function of ggplot viewing the lefse res files and also venn to see the overlap and whatnot of the different comparisons
 
+
+## collect all of the res files
+
 ```{r}
 res <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_.cts.tsv.res$', full.names = T)
 
@@ -33,8 +36,10 @@ res_all_list <- res_all %>%
   map(~split(., list(.$cohort, .$outcome )) %>% 
   map(~ pull(.data = ., feature)) %>% 
   compact())
-  
+```
 
+
+```{r}
 vars <- res_all %>% 
   distinct(outcome) %>% 
   pull(outcome)
@@ -56,5 +61,24 @@ tbs %>%
              labs(title = str_glue('{tb}')) +
           ggsave(str_glue('../figs/{tb}_venn_{.y}.pdf'), width = 7, height = 4))
   })
+```
+
+## a PCOA to see how the data
+
+```{r}
+cts <- read_tsv('../data/shotgun_output/humann3/') %>% 
+  gather('sampleid', 'value', names(.)[2]:names(.)[ncol(.)]) %>% 
+  rename(pathway =  names(.)[1]) %>% 
+  spread('pathway', 'value') %>% 
+  column_to_rownames('sampleid')
+dist_bl <- vegan::vegdist(cts, method = 'bray')
+bl_bc <- cmdscale(dist_bl, k = 2) 
+pheno <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>% 
+  mutate(sampleid = fid)
+bl_bc %>% 
+    as.data.frame() %>% 
+    rownames_to_column('sampleid') %>% 
+    inner_join(pheno, by = 'sampleid') %>% 
+    ggpubr::ggscatter(x = 'V1', y = 'V2', color =  'center',  shape = 'toxicity') 
 ```
 
