@@ -18,13 +18,15 @@ Create a function of ggplot viewing the lefse res files and also venn to see the
 ## collect all of the res files
 
 ```{r}
-res <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_.cts.tsv.res$', full.names = T)
+res <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_.+cts.tsv.res$', full.names = T)
 
 res_all <- res %>% 
   set_names(res) %>% 
-  map_dfr(~ read_tsv(., col_names = c('feature','xx','direction','score','pval')) %>% 
-        filter(!is.na(score)), .id = 'res') %>% 
-  mutate(tbl = if_else(str_detect(res, 'pcts'), 'pathway', 'taxa')) %>% 
+  map(~ read_tsv(., col_names = c('feature','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  keep(~ nrow(.) > 0) %>% 
+  bind_rows(.id = 'res') %>% 
+  mutate(tbl = if_else(str_detect(res, 'pcts'), 'pathway', if_else(str_detect(res, 'kocts'), 'KO', 'taxa'))) %>% 
   mutate(res = str_replace(res, '^.+//',''),
          res = str_replace(res, '_lefse.+$',''))  %>% 
   rename(grp = res) %>% 
@@ -36,6 +38,8 @@ res_all_list <- res_all %>%
   map(~split(., list(.$cohort, .$outcome )) %>% 
   map(~ pull(.data = ., feature)) %>% 
   compact())
+
+
 ```
 
 
@@ -63,10 +67,24 @@ tbs %>%
   })
 ```
 
+```{r}
+# for the KO table
+library(KEGGREST)
+res_all_list %>% pluck('KO') %>% 
+  keep(str_detect(names(.), 'toxicity')) %>% 
+  reduce(intersect) %>% 
+  map(~ list(KOID = keggGet(.)[[1]]$ENTRY,
+             KO_name = keggGet(.)[[1]]$NAME,
+             KO_def = keggGet(.)[[1]]$DEFINITION),
+             KO_pathway = keggGet(.)[[1]]$PATHWAY) %>%
+  bind_rows()
+```
+
+
 ## a PCOA to see how the data
 
 ```{r}
-cts <- read_tsv('../data/shotgun_output/humann3/') %>% 
+cts <- read_tsv('../data/shotgun_output/humann3/humann_final_out/pull_toxicity_kocts_cpm_unstratified.tsv') %>% 
   gather('sampleid', 'value', names(.)[2]:names(.)[ncol(.)]) %>% 
   rename(pathway =  names(.)[1]) %>% 
   spread('pathway', 'value') %>% 
