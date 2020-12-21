@@ -100,3 +100,41 @@ bl_bc %>%
     ggpubr::ggscatter(x = 'V1', y = 'V2', color =  'center',  shape = 'toxicity') 
 ```
 
+## output a pretty ggplot version of the lefse bar plot
+
+```{r}
+make <- res_all %>% 
+  filter(cohort == 'pull' & tbl == 'pathway') %>% 
+  mutate(score = if_else(direction == 'no', -score, score))
+make
+```
+
+```{r}
+all_title_fs <- 20
+axis_text_fs <- 16
+make %>% 
+  split(.$outcome) %>% 
+  imap(~   ggplot(data = .x, aes(x = reorder(feature, score), y = score, fill = direction)) +
+            geom_bar(stat = 'identity') +
+            coord_flip() +
+            #scale_color_manual(values = c('#0099B4', '#AD002A'))  +
+            #scale_fill_manual(values = c('#0099B4', '#AD002A')) +
+            theme_classic() +
+            theme(axis.title.y  = element_blank(), 
+                  axis.title.x = element_text(size=axis_text_fs),
+                  plot.title = element_text(size=all_title_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position="bottom") +
+            labs(title = str_glue('Response to {.y}') ,
+                 y = 'Score')+ 
+            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/NEW_humann3_version/pathway/pull_{.y}_pathway.pdf'), device = 'pdf', width = 12))
+
+```
+
+
+
+
+
+
+```
+
