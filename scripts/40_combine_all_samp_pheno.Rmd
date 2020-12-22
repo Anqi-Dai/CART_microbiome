@@ -38,7 +38,16 @@ all_baseline %>%
 ## the pheno label for the samples
 
 ```{r}
+# trying to get back the timepoint, sampleid, oligoid
+# starting from the patient and their earliest sample better have pre in their raw sampleid
+
 I2 <- read_csv('../data/shotgun_pheno/italy_all_later.csv')
+
+isamp <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/samples/opbg_sampleskey_with_oligoid_v2.xlsx', sheet = 1) %>% 
+  filter(pt_id %in% I2$pid) %>% 
+  filter(timepoint < 0) %>% 
+  distinct(sampleid, .keep_all = T) %>% 
+  full_join(I2 %>% select(pt_id = pid, fid))
 
 P <- read_csv('../data/shotgun_pheno/upenn_all_earlier.csv') 
 
@@ -55,15 +64,14 @@ I1 <- read_csv('../data/shotgun_pheno/italy_all_earlier.csv') %>%
 
 # the pheno lable for the I2!
 iptb <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Italy/patients/italy_essential_data_v4.xlsx', sheet = 1)
-I2_pheno <- I2 %>% 
-  rename(pt_id = pid) %>% 
+I2_pheno <- isamp %>% 
   left_join(iptb) 
 
 I_phe <- bind_rows(
   I1 %>% 
-    select(fid, pt_id = pid, infusion_date:last_followup), 
+    select(fid, pt_id = pid, timepoint:last_followup), 
   I2_pheno %>% 
-    select(fid, pt_id, infusion_date:last_followup)
+    select(fid, pt_id, timepoint:last_followup)
 ) %>% 
   mutate(center = 'I')
 ```
