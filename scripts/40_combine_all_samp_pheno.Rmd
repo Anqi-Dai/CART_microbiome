@@ -71,7 +71,7 @@ I_phe <- bind_rows(
   I1 %>% 
     select(fid, pt_id = pid, timepoint:last_followup), 
   I2_pheno %>% 
-    select(fid, pt_id, timepoint:last_followup)
+    select(fid, pt_id, timepoint:sampleid, oligoid:last_followup)
 ) %>% 
   mutate(center = 'I')
 ```
@@ -92,14 +92,23 @@ P_ <- bind_rows(
 
 P_phe <- P_ %>% 
   left_join(P_ptb)  %>% 
-  mutate(center = 'P') %>% 
+  mutate(center = 'P') 
+
+
+psamp <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/samples/sample_mapping_UPenn.xlsx', sheet = 1) %>% 
+  mutate(pt_id = pt_id-8000) %>% 
+  filter(pt_id %in% P_phe$pt_id) %>% 
+  full_join(P_phe) %>% 
   select(colnames(I_phe))
 ```
 
 
 ```{r}
 # MSK
+msamp <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/sample_table_msk.xlsx', sheet = 1)
 M_phe <- M %>% 
+  mutate(timepoint = NA,
+         oligoid = NA) %>% 
   mutate(center = 'M',
          pt_id = mrn) %>% 
   select(colnames(I_phe))
@@ -110,14 +119,11 @@ M_phe <- M %>%
 # combined 
 
 all <- bind_rows(
-  M_phe %>% mutate(pt_id = as.character(pt_id),
-                   icansgrade = as.character(icansgrade)), 
-  P_phe %>% 
+  M_phe %>% mutate(pt_id = as.character(pt_id)), 
+  psamp %>% 
     mutate(pt_id = as.character(pt_id)), 
-  I_phe %>% 
-    mutate(icansgrade = as.character(icansgrade))
-) %>% 
-  mutate(crsgrade = as.character(crsgrade))
+  I_phe 
+)
 
 # save a copy to the server for John
 all %>% 
