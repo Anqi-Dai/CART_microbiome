@@ -105,17 +105,18 @@ bl_bc %>%
 ```{r}
 make <- res_all %>% 
   filter(cohort == 'pull' & tbl == 'pathway') %>% 
-  mutate(score = if_else(direction == 'no', -score, score))
-make
-```
+  mutate(score = if_else(direction == 'no', -score, score)) %>% 
+  mutate(feature = str_replace_all(feature, '_',' ')) %>% 
+  mutate(feature = str_wrap(feature, width = 55, indent = 0, exdent = 0))
 
-```{r}
+
+
 all_title_fs <- 20
 axis_text_fs <- 16
 make %>% 
   split(.$outcome) %>% 
   imap(~   ggplot(data = .x, aes(x = reorder(feature, score), y = score, fill = direction)) +
-            geom_bar(stat = 'identity') +
+            geom_col(position = position_dodge2(width = 0.9, preserve = "single")) +
             coord_flip() +
             #scale_color_manual(values = c('#0099B4', '#AD002A'))  +
             #scale_fill_manual(values = c('#0099B4', '#AD002A')) +
@@ -125,16 +126,30 @@ make %>%
                   plot.title = element_text(size=all_title_fs),
                   axis.text.x = element_text(size=axis_text_fs),
                   legend.position="bottom") +
+         scale_fill_manual(values = c('#0099B4','#AD002A')) +
             labs(title = str_glue('Response to {.y}') ,
                  y = 'Score')+ 
-            ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/NEW_humann3_version/pathway/pull_{.y}_pathway.pdf'), device = 'pdf', width = 12))
+            ggsave(str_glue('../data/shotgun_output/humann3/pull_{.y}_pathway.pdf'), device = 'pdf', width = 14))
+            #ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/NEW_humann3_version/pathway/pull_{.y}_pathway.pdf'), device = 'pdf', width = 12))
+            
+make %>% 
+  filter(outcome == 'cr_d100') %>% 
+  split(.$outcome) %>% 
+  imap(~   ggplot(data = .x, aes(x = reorder(feature, score), y = score, fill = direction)) +
+            geom_col(position = position_dodge2(width = 0.9, preserve = "single")) +
+            coord_flip() +
+            #scale_color_manual(values = c('#0099B4', '#AD002A'))  +
+            #scale_fill_manual(values = c('#0099B4', '#AD002A')) +
+            theme_classic() +
+            theme(axis.title.y  = element_blank(), 
+                  axis.title.x = element_text(size=axis_text_fs),
+                  plot.title = element_text(size=all_title_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position="bottom") +
+         scale_fill_manual(values = c('#ED0000','#00468B')) +
+            labs(title = str_glue('Response to {.y}') ,
+                 y = 'Score')+ 
+            ggsave(str_glue('../data/shotgun_output/humann3/pull_{.y}_pathway.pdf'), device = 'pdf', width = 14))
 
+# for above this is for the Italy excluded version 
 ```
-
-
-
-
-
-
-```
-

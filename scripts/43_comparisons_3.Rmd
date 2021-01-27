@@ -16,6 +16,7 @@ SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN
 ```{r}
 pheno <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>% 
   select(fid, center, cr_d100, toxicity, icans, crs) %>% 
+  filter(center != 'I') %>% # remove the Italy ones
   gather('pheno', 'value', cr_d100:crs) 
 
 sub_phenos <- pheno %>% 
@@ -99,9 +100,13 @@ all_pcts <- all_sub_pheno %>%
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ full %>% select(`# Pathway`, matches(.x)) %>% 
          write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_pcts.tsv')))
+```
 
+
+```{r}
+# KO
 all_kocts <- all_sub_pheno %>% 
-  map(~ pull(.data = ., fid) ) %>% 
+  map(~ pull(.data = ., fid) ) %>%  
   imap(~ fullko %>% select(`# Gene Family`, matches(.x)) %>% 
          write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_kocts.tsv')))
 ```
@@ -114,11 +119,16 @@ all_gfcts <- all_sub_pheno %>%
          write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_gfcts.tsv'))) 
 ```
 
+## Need to go to snakemake for some steps related to humann before the lefse
+
+
+
 ## generate command to run lefse in py2 environment
 
 cuz can't get them thru snakemake
 
 ```{r}
+# PATHWAY
 fns <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_pcts.tsv$')
 
 cmds <- tibble(
@@ -137,7 +147,7 @@ cmds <- tibble(
 ## The taxa relative abundance from the shotgun data using metaphlan
 
 ```{r}
-taxa <- read_tsv('../data/shotgun_output/metaphlan/merged_abundance_table.txt', skip = 1)  %>% 
+taxa <- read_tsv('../data/shotgun_output/metaphlan/merged_abundance_table.txt')  %>% 
   rename_all(funs(str_replace(., '_profile$','')))
 
 tcts <- sub_phenos %>% 
@@ -149,6 +159,8 @@ all_tcts <- all_sub_pheno %>%
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ taxa %>% select(clade_name, matches(.x)) %>% 
          write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_tcts.tsv')))
+
+# then just need to use the snakemake rule to cat the two
 ```
 
 ```{r}
@@ -161,7 +173,7 @@ cmds <- tibble(
   mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
   mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
   mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300 --title {fns}')) %>% 
-  mutate(clado_cmd = str_glue('plot_cladogram.py {fns}.res {fns}_clado.png  --label_font_size 4 --dpi 300 --format png --title {fns}')) %>% 
+  mutate(clado_cmd = str_glue('plot_cladogram.py {fns}.res {fns}_clado.pdf  --label_font_size 4 --dpi 300 --format pdf --title {fns}')) %>% 
   select(-fns) %>% 
   gather() %>% 
   select(value) %>% 
