@@ -106,9 +106,8 @@ bl_bc %>%
 make <- res_all %>% 
   filter(cohort == 'pull' & tbl == 'pathway') %>% 
   mutate(score = if_else(direction == 'no', -score, score)) %>% 
-  mutate(feature = str_replace_all(feature, '_',' ')) %>% 
-  mutate(feature = str_wrap(feature, width = 55, indent = 0, exdent = 0))
-
+  mutate(feature = str_replace_all(feature, '_',' ')) 
+  #mutate(feature = str_wrap(feature, width = 55, indent = 0, exdent = 0))
 
 
 all_title_fs <- 20
@@ -129,7 +128,7 @@ make %>%
          scale_fill_manual(values = c('#0099B4','#AD002A')) +
             labs(title = str_glue('Response to {.y}') ,
                  y = 'Score')+ 
-            ggsave(str_glue('../data/shotgun_output/humann3/pull_{.y}_pathway.pdf'), device = 'pdf', width = 14))
+            ggsave(str_glue('../data/shotgun_output/humann3/pull_{.y}_pathway.pdf'), device = 'pdf', width = 8))
             #ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/NEW_humann3_version/pathway/pull_{.y}_pathway.pdf'), device = 'pdf', width = 12))
             
 make %>% 
@@ -149,7 +148,7 @@ make %>%
          scale_fill_manual(values = c('#ED0000','#00468B')) +
             labs(title = str_glue('Response to {.y}') ,
                  y = 'Score')+ 
-            ggsave(str_glue('../data/shotgun_output/humann3/pull_{.y}_pathway.pdf'), device = 'pdf', width = 14))
+            ggsave(str_glue('../data/shotgun_output/humann3/pull_{.y}_pathway.pdf'), device = 'pdf', width = 8))
 
 # for above this is for the Italy excluded version 
 ```
