@@ -76,7 +76,7 @@ genus <- bind_rows(
   ucts_all %>% mutate(center = 'P'),
   mcts_all %>% mutate(center = 'M')
 )
-
+ 
 genus %>% 
   write_csv('../data/amplicon/stool/counts_genus_combined.csv')
 ```

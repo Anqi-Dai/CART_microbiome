@@ -77,3 +77,37 @@ u_meta_b %>%
 u_meta_b %>% 
   count(toxicity)
 ```
+## merge the two pheno tables and then write out
+
+```{r}
+m <- m_meta_b %>% 
+  select(-pt_id_old) %>% 
+  rename(pt_id = mrn) %>% 
+  select(-last_followup) %>% 
+  mutate(center = 'M') %>% 
+  mutate(icansgrade = as.character(icansgrade))
+
+p <- u_meta_b %>%   
+  mutate(time_group = 'Baseline') %>% 
+  select(-sampleid) %>% 
+  rename(sampleid = oligoid) %>% 
+  select(-last_followup_day) %>% 
+  mutate(center = 'P')  %>% 
+  select(colnames(m))  
+  
+combined <- bind_rows(m, p)
+```
+
+## also get the alpha diversity here 
+
+```{r}
+get_table_from_database('asv_alpha_diversity_ag')
+
+combined_join <- combined %>% 
+  inner_join(asv_alpha_diversity_ag %>% 
+               select(sampleid, simpson_reciprocal))
+
+combined_join %>% 
+  write_csv('../data/amplicon/stool/combined_2_meta.csv')
+```
+
