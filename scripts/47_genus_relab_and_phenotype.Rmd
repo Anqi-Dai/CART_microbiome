@@ -1,0 +1,104 @@
+---
+title: "16s genus relab and phenotype"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+```
+
+Enteroccous relative abundance v CR D100
+
+Enteroccous relative abundance v Toxicity
+
+Toxicity grade (both crs and icans) in light of the relative abundance of bacteroidetes or enterococcus
+
+## Enteroccous relative abundance v CR D100
+
+```{r}
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+genus <- read_csv('../data/amplicon/stool/counts_genus_combined.csv')
+```
+
+```{r}
+# get the relative abundance of bacteroidetes or enterococcus for those samples
+target <- genus %>% 
+  filter(genus %in% c('Enterococcus','Bacteroides')) %>% 
+  select(-center) %>% 
+  spread('genus', 'relab') %>% 
+  mutate(Bacteroides_log = log10(Bacteroides + 2*10^-6),
+         Enterococcus_log = log10(Enterococcus + 2*10^-6)) 
+
+joined <- meta %>% 
+  full_join(target) %>% 
+  mutate(center = if_else(center == 'P', 'Upenn', "MSK"))
+```
+
+```{r}
+# a tally of the yes and no and unknown for the CR D100 to put in the title
+joined %>% 
+  filter(cr_d100 %in% c('yes','no')) %>% 
+  ggboxplot(x = 'cr_d100', y = 'Enterococcus_log', facet.by = 'center', add = 'jitter', color = 'cr_d100',
+            xlab = 'CR Day 100', ylab = 'log10(Enterococcus relab)',
+            title = 'CR D100 VS log10(Enterococcus relab)') +
+  scale_color_manual(values = c('#ED0000','#00468B'))  +
+  stat_compare_means(comparisons= list(c('yes', 'no')),
+    label= "p.format",
+    method= 'wilcox.test',
+    exact=FALSE) +
+  ggsave('../figs/amplicon/CR D100 VS log10(Enterococcus relab).pdf', width = 5, height = 5)
+```
+
+## Enteroccous relative abundance v Toxicity
+
+```{r}
+joined %>% 
+  ggboxplot(x = 'toxicity', y = 'Enterococcus_log', facet.by = 'center', add = 'jitter', color = 'toxicity',
+            xlab = 'toxicity', ylab = 'log10(Enterococcus relab)',
+            title = 'toxicity VS log10(Enterococcus relab)') +
+  scale_color_manual(values = c('#0099B4','#AD002A'))  +
+   stat_compare_means(comparisons= list(c('yes', 'no')),
+    label= "p.format",
+    method= 'wilcox.test',
+    exact=FALSE) +
+  ggsave('../figs/amplicon/toxicity VS log10(Enterococcus relab).pdf', width = 5, height = 4.5)
+```
+## Toxicity grade (both crs and icans) VS the relative abundance of bacteroidetes or enterococcus
+
+```{r}
+joined %>% 
+  count(center, icansgrade)
+
+joined %>% 
+  count(center, crsgrade)
+
+# ignore the pending ones
+df <- joined %>% 
+  mutate(icansgrade = as.numeric(icansgrade)) %>% 
+  filter(!is.na(icansgrade)) %>% 
+  select(icansgrade, crsgrade, Bacteroides_log, Enterococcus_log, center)  %>% 
+  gather('item', 'grade', icansgrade:crsgrade)
+   
+df %>% 
+  ggboxplot(x = 'grade', y = 'Bacteroides_log',  add = 'jitter',
+            xlab = 'Toxicity grade', ylab = 'log10(Bacteroides relab)',
+            title = 'Toxicity grade VS log10(Bacteroides relab)') +
+  facet_wrap(item ~ center, scales = 'free') +
+  stat_compare_means(comparisons= list(c('0', '1'), c('0','2'), c('0','3')),label= "p.format", method= 'wilcox.test',exact=FALSE)  + 
+  ggsave('../figs/amplicon/toxicity grade VS log10(Bacteroides relab).pdf', width = 7, height = 7)
+```
+```{r}
+df %>% 
+  ggboxplot(x = 'grade', y = 'Enterococcus_log',  add = 'jitter',
+            xlab = 'Toxicity grade', ylab = 'log10(Enterococcus relab)',
+            title = 'Toxicity grade VS log10(Enterococcus relab)') +
+  facet_wrap(item ~ center, scales = 'free') +
+  stat_compare_means(comparisons= list(c('0', '1'), c('0','2'), c('0','3')),label= "p.format", method= 'wilcox.test',exact=FALSE)  + 
+  ggsave('../figs/amplicon/toxicity grade VS log10(Enterococcus relab).pdf', width = 7, height = 7)
+```
+ The problem is when they don't have all the comparison in a specific facet there is gonna be no comparison and p value gotta think about this 
