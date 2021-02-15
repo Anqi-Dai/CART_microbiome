@@ -1,0 +1,83 @@
+---
+title: "16s relative abundance"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(vdbR)
+connect_database('~/dbConfig.txt')
+library(tidyverse)
+```
+
+```{r}
+get_table_from_database('asv_counts_ag')
+get_table_from_database('asv_annotation_blast_ag')
+```
+
+```{r}
+# the counts for the genus in MSK
+mcts <- asv_counts_ag %>% 
+  filter(sampleid %in% m_meta_b$sampleid) %>% 
+  select(asv_key, sampleid, count) %>% 
+  spread(key = 'sampleid', value = 'count', fill = 0) %>% 
+  arrange(asv_key) 
+
+mannot <- asv_annotation_blast_ag %>% 
+  filter(asv_key %in% mcts$asv_key) %>% 
+  mutate(ordr =  if_else(ordr == '', str_glue('of_class_{class}'), ordr),
+         family =  if_else(family == '', str_glue('of_order_{ordr}'), family),
+         genus =  if_else(genus == '', str_glue('of_family_{family}'), genus),
+         species =  if_else(species == '', str_glue('of_genus_{genus}'), species)) 
+
+mcts_all <- mcts %>% 
+  full_join(mannot %>%  select(asv_key, genus), by  = 'asv_key') %>% 
+  select(-asv_key) %>% 
+  gather(key = 'sampleid', value = 'count', names(.)[1]:names(.)[ncol(.) - 1]) %>% 
+  group_by(sampleid, genus) %>% 
+  summarise(cnt = sum(count)) %>% 
+  # get the total count from the db to calculate the relab
+  left_join(asv_counts_ag %>% distinct(sampleid,count_total ), by = 'sampleid') %>% 
+  mutate(relab = cnt/count_total) %>% 
+  select(sampleid, genus, relab) 
+```
+```{r}
+# the counts for the genus in Upenn
+ucts <- asv_counts_ag %>% 
+  filter(sampleid %in% u_meta_b$oligoid) %>% 
+  select(asv_key, sampleid, count) %>% 
+  spread(key = 'sampleid', value = 'count', fill = 0) %>% 
+  arrange(asv_key) 
+
+uannot <- asv_annotation_blast_ag %>% 
+  filter(asv_key %in% ucts$asv_key) %>% 
+  mutate(ordr =  if_else(ordr == '', str_glue('of_class_{class}'), ordr),
+         family =  if_else(family == '', str_glue('of_order_{ordr}'), family),
+         genus =  if_else(genus == '', str_glue('of_family_{family}'), genus),
+         species =  if_else(species == '', str_glue('of_genus_{genus}'), species)) 
+
+ucts_all <- ucts %>% 
+  full_join(uannot %>%  select(asv_key, genus), by  = 'asv_key') %>% 
+  select(-asv_key) %>% 
+  gather(key = 'sampleid', value = 'count', names(.)[1]:names(.)[ncol(.) - 1]) %>% 
+  group_by(sampleid, genus) %>% 
+  summarise(cnt = sum(count)) %>% 
+  # get the total count from the db to calculate the relab
+  left_join(asv_counts_ag %>% distinct(sampleid,count_total ), by = 'sampleid') %>% 
+  mutate(relab = cnt/count_total) %>% 
+  select(sampleid, genus, relab) 
+```
+```{r}
+# combine them and save to a df
+genus <- bind_rows(
+  ucts_all %>% mutate(center = 'P'),
+  mcts_all %>% mutate(center = 'M')
+)
+
+genus %>% 
+  write_csv('../data/amplicon/stool/counts_genus_combined.csv')
+```
+

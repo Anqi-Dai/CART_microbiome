@@ -1,0 +1,79 @@
+---
+title: "Sorting out the 16s"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+This script will be cleaning and organizing the 16s samples 
+
+```{r}
+# upenn is all baseline samples 
+ustb <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/samples/sample_mapping_UPenn.xlsx') 
+
+uptb <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/patients/upenn_essential_data_v3.xlsx', sheet = 3) %>% 
+  filter(!is.na(gender))
+
+```
+
+```{r}
+# MSK contains baseline and following time points
+mstb_ineli <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/sample_table_msk.xlsx', sheet = 2)
+mstb <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/sample_table_msk.xlsx', sheet = 1) %>% 
+  filter(! sampleid %in% mstb_ineli$sampleid)
+ 
+mptb_ineli <-  read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/patients/msk_essential_data_v4.xlsx', sheet = 2)
+mptb <-  read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/patients/msk_essential_data_v4.xlsx', sheet = 1) %>% 
+  mutate(mrn = as.numeric(mrn)) %>% 
+  filter(! mrn %in% mptb_ineli$pt_id)
+  
+```
+
+## baseline samples only meta
+
+```{r}
+m_meta_b <- mstb %>% 
+  filter(str_detect(time_group, '^Baseline')) %>% 
+  inner_join(mptb, by = "mrn")
+
+
+u_meta_b <- ustb %>% 
+  inner_join(uptb, by = "pt_id")
+
+colnames(u_meta_b)
+```
+
+
+```{r}
+colnames(m_meta_b)
+```
+
+## Look at the tally of the phenotypes 
+
+```{r}
+m_meta_b %>% 
+  count(cr_d30)
+
+m_meta_b %>% 
+  count(cr_d100)
+
+m_meta_b %>% 
+  count(toxicity)
+```
+```{r}
+u_meta_b %>% 
+  count(cr_d30)
+
+u_meta_b %>% 
+  count(cr_d100)
+
+u_meta_b %>% 
+  count(toxicity)
+```
