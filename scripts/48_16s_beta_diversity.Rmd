@@ -1,0 +1,84 @@
+---
+title: "16s beta diversity"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(vegan)
+library(tidyverse)
+set.seed(123)
+```
+
+Do a PcoA and do the anosim test
+
+**Do M, P and pull separately, and then do for each of the 4 things CR_d100, Toxicity, ICANS and CRS**
+
+```{r}
+genus <- read_csv('../data/amplicon/stool/counts_genus_combined.csv')
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') 
+pheno <- meta %>% 
+  select(sampleid, cr_d100, toxicity, crs, icans)
+
+nsamp <- genus %>% distinct(sampleid) %>% nrow
+
+# do some filtering 10% and 0.01%
+keep <- genus %>% 
+  filter(relab > 0.0001) %>% 
+  count(genus) %>% 
+  filter(n > floor(nsamp * 0.2)) %>% 
+  filter(!is.na(genus)) %>% 
+  pull(genus) 
+  
+
+dat <- genus %>% 
+  filter(genus %in% keep) %>% 
+  spread(key = 'genus', value = 'relab') %>% 
+  full_join(pheno)
+
+```
+ 
+```{r}
+# a function to do the combinations of the anosim test
+pheno4 <- colnames(pheno)[2:5] 
+
+combi <- data_frame(
+  g1 = c(rep('M',4), rep('P',4), rep('M',4)),
+  g2 = c(rep('M',4), rep('P',4), rep('P',4)),
+  label = rep(pheno4, 3)
+)
+   
+do_anosim_each <-  function(g1_, g2_, label_){
+    df = dat %>% 
+      filter(center %in% c(g1_, g2_)) %>% 
+      filter(get(label_) %in% c('yes','no')) 
+    cts = df %>% 
+      select(sampleid, all_of(keep)) %>% 
+      column_to_rownames('sampleid')
+    phe = df %>% 
+      select(matches(label_)) %>% pull(get(label_)) 
+    
+    # anosim run
+    ret = anosim(cts, phe, permutations = 999, distance = "bray", strata = NULL, parallel = 4)
+    
+  return(list(pval = ret$signif, 
+              statistic = ret$statistic))
+}
+ 
+all_anosim <- pmap(combi, function(g1, g2, label){
+    do_anosim_each(g1, g2, label)
+  }) %>% 
+  set_names(str_glue('{combi$g1}_{combi$g2}__{combi$label}')) 
+```
+
+```{r}
+# to organize the final results
+anosim_res <- all_anosim %>% 
+  bind_rows(.id = 'name') %>% 
+  separate(name, into = c('group','pheno'), remove = T, sep = '__') %>% 
+  mutate(cohort = case_when(group == 'M_M' ~ "MSK", group == 'P_P' ~ "Upenn", group == 'M_P' ~ "Combined"))
+```
+
