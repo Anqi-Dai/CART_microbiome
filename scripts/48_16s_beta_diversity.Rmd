@@ -60,9 +60,23 @@ do_anosim_each <-  function(g1_, g2_, label_){
       column_to_rownames('sampleid')
     phe = df %>% 
       select(matches(label_)) %>% pull(get(label_)) 
+    phedf = df %>% 
+      select(sampleid, matches(label_))
     
     # anosim run
     ret = anosim(cts, phe, permutations = 999, distance = "bray", strata = NULL, parallel = 4)
+    
+    # plot the pcoa
+    dist_ <- vegdist(cts, method = 'bray')
+    bc <- cmdscale(dist_, k = 2) 
+    bc %>% 
+      as.data.frame() %>% 
+      rownames_to_column('sampleid') %>% 
+      full_join(phedf, by = 'sampleid') %>% 
+      ggplot(aes_string(x = "V1", y = "V2", color =  label_)) + geom_point() +
+      labs(title = str_glue('PCoA {g1_}_{g2_}__{label_}\npval:{ret$signif} statistic:{round(ret$statistic, 2)}')) +
+      ggsave(str_glue('../figs/beta_{g1_}_{g2_}__{label_}.pdf'))
+      
     
   return(list(pval = ret$signif, 
               statistic = ret$statistic))
@@ -80,5 +94,7 @@ anosim_res <- all_anosim %>%
   bind_rows(.id = 'name') %>% 
   separate(name, into = c('group','pheno'), remove = T, sep = '__') %>% 
   mutate(cohort = case_when(group == 'M_M' ~ "MSK", group == 'P_P' ~ "Upenn", group == 'M_P' ~ "Combined"))
-```
 
+anosim_res %>% 
+  write_csv('../data/amplicon/stool/anosim_res.csv')
+```
