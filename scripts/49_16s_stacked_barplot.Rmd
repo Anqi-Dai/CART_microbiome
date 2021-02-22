@@ -1,0 +1,73 @@
+---
+title: "16s taxa stacked bar plot"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database("asv_annotation_blast_color_ag");
+```
+
+
+## load the tables and organize the data
+
+```{r}
+# my table of the CART stool cohort
+stb <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+
+# get the counts from database and also the color for the asv 
+counts_data <- get_counts_subset(stb$sampleid)
+
+counts_data %>% 
+  distinct(sampleid)
+
+dat <- counts_data %>% 
+  select(asv_key:count_total, count_relative) %>% 
+  left_join(asv_annotation_blast_color_ag %>% 
+              select(asv_key,color_label_group_distinct), by = "asv_key")
+
+# the color palette (inherited from Ying, used in lots of project in our lab, the palette used in the NEJM paper Fig 2D https://www.nejm.org/doi/full/10.1056/NEJMoa1900623)
+
+asv_color_set <- asv_annotation_blast_color_ag %>% 
+  distinct(color,color_label_group_distinct,color_label_group,color_base) %>% 
+  select(color_label_group_distinct, color) %>% 
+  deframe()
+```
+
+```{r}
+# calculate the beta diversity between the samples which deicide the order of the samples in the plot
+cbd <- compute_beta_diversity_and_tsne(sampleid = dat$sampleid, 
+                                      taxonomy = dat$color_label_group_distinct,
+                                      count = dat$count);
+#compute beta diversity
+cbd$compute_beta_diversity()
+```
+
+```{r}
+#get beta diversity
+d_beta <- cbd$get_betadiversity() 
+
+#compute hierarchical cluster
+hc <- hclust(as.dist(d_beta), method = 'complete')
+
+dend <- as.dendrogram(hc)
+
+sample_dendogram_order <- labels(dend)
+
+dat$sampleid = factor(dat$sampleid,levels = sample_dendogram_order)
+
+ggplot(dat,aes(sampleid, count_relative, fill = color_label_group_distinct) ) +
+  geom_bar(stat = "identity", position="fill", width = 1) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90),
+        axis.text.y = element_blank(),
+        legend.position = "none") +
+  scale_fill_manual(values = asv_color_set)
+
+```
