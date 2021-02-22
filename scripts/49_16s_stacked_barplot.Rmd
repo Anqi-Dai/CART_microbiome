@@ -26,12 +26,49 @@ counts_data <- get_counts_subset(stb$sampleid)
 
 counts_data %>% 
   distinct(sampleid)
+```
 
+
+```{r}
 dat <- counts_data %>% 
   select(asv_key:count_total, count_relative) %>% 
   left_join(asv_annotation_blast_color_ag %>% 
               select(asv_key,color_label_group_distinct), by = "asv_key")
 
+# there are some ASVs that don't have a color with it, but can use the color for the genus level
+color_group <- dat %>% 
+  split(is.na(.$color_label_group_distinct))
+
+# find the genus for these asv
+get_table_from_database('asv_annotation_blast_ag')
+
+no_color <- color_group %>% 
+  pluck('TRUE') %>% 
+  distinct(asv_key) %>% 
+  inner_join(asv_annotation_blast_ag %>% 
+               select(asv_key, genus)) 
+
+# find the colors for these genera
+genera_colors <- no_color %>% 
+  distinct(genus) %>% 
+  inner_join(asv_annotation_blast_color_ag %>% 
+               distinct(genus, color_label_group_distinct))
+
+# the full df for the no color genera
+no_color_df <- no_color %>% 
+  left_join(genera_colors)
+
+no_color_df_full <- color_group %>% 
+  pluck('TRUE') %>% 
+  select(-color_label_group_distinct) %>% 
+  left_join(no_color_df %>% 
+              select(- genus))
+  
+# the question is do we go one taxa level higher or make a new color base and shades for the new asv 
+```
+
+
+```{r}
 # the color palette (inherited from Ying, used in lots of project in our lab, the palette used in the NEJM paper Fig 2D https://www.nejm.org/doi/full/10.1056/NEJMoa1900623)
 
 asv_color_set <- asv_annotation_blast_color_ag %>% 
@@ -71,3 +108,23 @@ ggplot(dat,aes(sampleid, count_relative, fill = color_label_group_distinct) ) +
   scale_fill_manual(values = asv_color_set)
 
 ```
+
+```{r}
+# the thing that is dividing the samples to lower and higher diversity 
+# or just order samples by their diversity
+div_order <- stb %>% 
+  arrange(simpson_reciprocal) %>% 
+  pull(sampleid)
+
+
+dat$sampleid = factor(dat$sampleid,levels = div_order)
+
+ggplot(dat,aes(sampleid, count_relative, fill = color_label_group_distinct) ) +
+  geom_bar(stat = "identity", position="fill", width = 1) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90),
+        axis.text.y = element_blank(),
+        legend.position = "none") +
+  scale_fill_manual(values = asv_color_set)
+```
+
