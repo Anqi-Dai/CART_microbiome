@@ -1,0 +1,38 @@
+---
+title: "shotgun pathway ontology look"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+pw <- read_csv('../data/shotgun_output/lefse_sig_results_taxa_and_pw.csv') %>% 
+  filter(tbl == 'pathway') %>% 
+  mutate(pwid = str_extract(feature, '^.+_PWY|^PWY_\\d{3,4}'))  %>% 
+  mutate(pwid = str_replace_all(pwid, '_', '-'))
+```
+
+```{r}
+level <- read_csv('~/pipeline/scripts/shotgun_pipeline/data/metacyc_pathway_class_and_superclass_levels.csv', col_types = 'ccccccccccccccccc')
+
+dat <- pw %>% 
+  inner_join(level)
+
+dat_list <- dat %>% 
+  arrange(cohort, outcome , direction, -score) %>% 
+  split(list(.$cohort, .$outcome , .$direction)) %>% 
+  discard( ~nrow(.) == 0)
+
+dat_list %>% 
+  imap(function(.x, .y){
+    .x %>% 
+      write_csv(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/lefse_sig_pathways_ontology_tables/{.y}_result.csv'))
+  })
+```
+
