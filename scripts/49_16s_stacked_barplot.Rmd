@@ -54,6 +54,7 @@ genera_colors <- no_color %>%
   inner_join(asv_annotation_blast_color_ag %>% 
                distinct(genus, color_label_group_distinct))
 
+
 # the full df for the no color genera
 no_color_df <- no_color %>% 
   left_join(genera_colors)
@@ -116,8 +117,16 @@ div_order <- stb %>%
   arrange(simpson_reciprocal) %>% 
   pull(sampleid)
 
+###
+# how about splitting the above dendrogram order into the low and higher diversity groups
+div_med <- median(stb$simpson_reciprocal)
+lower_samp <- stb %>% 
+  filter(simpson_reciprocal <= div_med) %>% 
+  pull(sampleid)
+lower_samp_o <- sample_dendogram_order[sample_dendogram_order %in% lower_samp]
+higher_samp_o <- sample_dendogram_order[!sample_dendogram_order %in% lower_samp]
 
-dat$sampleid = factor(dat$sampleid,levels = div_order)
+dat$sampleid = factor(dat$sampleid,levels = c(lower_samp_o, higher_samp_o))
 
 ggplot(dat,aes(sampleid, count_relative, fill = color_label_group_distinct) ) +
   geom_bar(stat = "identity", position="fill", width = 1) +
@@ -127,4 +136,3 @@ ggplot(dat,aes(sampleid, count_relative, fill = color_label_group_distinct) ) +
         legend.position = "none") +
   scale_fill_manual(values = asv_color_set)
 ```
-

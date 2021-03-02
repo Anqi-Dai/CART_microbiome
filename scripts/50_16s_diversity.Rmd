@@ -1,0 +1,50 @@
+---
+title: "16s diversity"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+```
+
+```{r}
+stb <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+```
+```{r}
+# combining the institutions for the diversity boxplot colored by the toxicity and CR
+dat <- stb %>% 
+  select(sampleid, cr_d100, toxicity, simpson_reciprocal) %>% 
+  gather('metric', 'value', cr_d100:toxicity)
+
+# for coloring issues the two metric has to be done separately
+dat %>% 
+  filter(value %in% c('yes','no')) %>% 
+  filter(metric == 'cr_d100') %>% 
+  ggboxplot(x = 'value', y = 'simpson_reciprocal', add = 'jitter',
+            title = 'cr_d100', ylab = 'Simpson Reciprocal', xlab = '', color = 'value',
+            palette = c('#ED0000','#00468B')) +
+            stat_compare_means(comparisons= list(c('yes', 'no')),
+            label= "p.format",
+            method= 'wilcox.test',
+            correct=FALSE) +
+  ggsave('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Angel_amplicon/diversity/combined_cr_d100.pdf')
+
+dat %>% 
+  filter(value %in% c('yes','no')) %>% 
+  filter(metric == 'toxicity') %>% 
+  ggboxplot(x = 'value', y = 'simpson_reciprocal', add = 'jitter',
+            title = 'toxicity', ylab = 'Simpson Reciprocal', xlab = '', color = 'value',
+            palette = c('#0099B4','#AD002A'))  +
+            stat_compare_means(comparisons= list(c('yes', 'no')),
+            label= "p.format",
+            method= 'wilcox.test',
+            correct=FALSE) +
+  ggsave('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Angel_amplicon/diversity/combined_toxicity.pdf')
+  
+```
+

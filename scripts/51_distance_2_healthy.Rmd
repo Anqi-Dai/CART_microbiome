@@ -1,0 +1,97 @@
+---
+title: "16S distance to healthy people"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(vdbR)
+connect_database('~/dbConfig.txt')
+source('centroid_distance.R')
+get_table_from_database("asv_alpha_diversity_ag")
+get_table_from_database("asv_annotation_blast_ag")
+get_table_from_database("healthy_volunteers_ag")
+stb <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+```
+
+```{r}
+healthy <- healthy_volunteers_ag %>% 
+  inner_join(asv_alpha_diversity_ag, by = c("sampleid", "oligos_id")) 
+
+cts <- get_counts_subset(c(stb$sampleid, healthy %>% pull(sampleid)))
+
+# get the genus of the asv_key
+dat <- cts %>% 
+  left_join(asv_annotation_blast_ag %>% 
+              select(asv_key, genus))
+
+# calculate the beta diversity
+cbd <- compute_beta_diversity_and_tsne(sampleid = dat$sampleid,
+                                      taxonomy = dat$genus,
+                                      count =  dat$count);
+
+cbd$compute_beta_diversity()
+
+d_beta = cbd$get_betadiversity() 
+```
+
+```{r}
+# assemble the df with sampleid  mrn and group
+df <- bind_rows(
+  tibble(
+    sampleid = stb$sampleid,
+    pid = as.character(stb$pt_id),
+    center = stb$center,
+    grp = 'CART'
+  ),
+  tibble(
+    sampleid = healthy$sampleid,
+    pid = healthy$volunteer_uid,
+    center = 'healthy',
+    grp = 'healthy'
+  )
+)
+```
+
+```{r}
+# compute the distance to centroid combined and for individual centers
+centroid_grp <- centroid_distance_selected_rows(
+  M = d_beta, 
+  selected_rows = df$sampleid,
+  selected_rows_groups = df$grp, 
+  ref_group = "healthy")
+
+centroid_center <- centroid_distance_selected_rows(
+  M = d_beta, 
+  selected_rows = df$sampleid,
+  selected_rows_groups = df$center, 
+  ref_group = "healthy")
+```
+
+```{r}
+# plotting
+centroid_grp %>% 
+  ggboxplot(x = 'groups', y = 'dist_to_centroid', add = 'jitter', xlab = '',
+            ylab = 'Distance to healthy cohort', title = 'Per sampleid')  +
+  stat_compare_means(comparisons= list(c('CART', 'healthy')),
+            label= "p.format",
+            method= 'wilcox.test',
+						correct=FALSE) +
+  ggsave('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Angel_amplicon/distance_to_centroid/all_CART_compared_to_healthy.pdf')
+```
+```{r}
+centroid_center %>% 
+  ggboxplot(x = 'groups', y = 'dist_to_centroid', add = 'jitter', xlab = '',
+            ylab = 'Distance to healthy cohort', title = 'Per sampleid')  +
+  stat_compare_means(comparisons= list(c('M','P'), c('M', 'healthy'), c('P', 'healthy')),
+            label= "p.format",
+            method= 'wilcox.test',
+						correct=FALSE) +
+  ggsave('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Angel_amplicon/distance_to_centroid/centers_compared_to_healthy.pdf')
+```
+
