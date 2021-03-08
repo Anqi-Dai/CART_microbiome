@@ -110,5 +110,8 @@ combined_join <- combined %>%
 
 combined_join %>% 
   write_csv('../data/amplicon/stool/combined_2_meta.csv')
+
+combined_join %>% 
+  write_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Angel_amplicon/16s_data_pheno_comprehensive.csv')
 ```
 
