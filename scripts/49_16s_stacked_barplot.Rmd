@@ -65,7 +65,16 @@ no_color_df_full <- color_group %>%
   left_join(no_color_df %>% 
               select(- genus))
   
-# the question is do we go one taxa level higher or make a new color base and shades for the new asv 
+# so if the genus is unknown then it's gonna be assigned "other" gray color  
+# the question is do we go one taxa level higher or make a new color base and shades for the new asv
+# after discussing with Tsoni, we decided that it's ok to assign gray to the unknown genus 
+
+# merge the new no_color_df_full to the original df
+dat <- bind_rows(
+  no_color_df_full,
+  color_group %>% 
+    pluck('FALSE')
+)   
 ```
 
 
@@ -103,10 +112,12 @@ dat$sampleid = factor(dat$sampleid,levels = sample_dendogram_order)
 ggplot(dat,aes(sampleid, count_relative, fill = color_label_group_distinct) ) +
   geom_bar(stat = "identity", position="fill", width = 1) +
   theme_classic() +
+  labs(title = 'stacked bar sorted with hclust') +
   theme(axis.text.x = element_text(angle = 90),
         axis.text.y = element_blank(),
         legend.position = "none") +
-  scale_fill_manual(values = asv_color_set)
+  scale_fill_manual(values = asv_color_set) +
+  ggsave('../figs/amplicon/stacked_bar_sorted_with_hclust.pdf', width = 7, height = 5)
 
 ```
 
@@ -131,8 +142,10 @@ dat$sampleid = factor(dat$sampleid,levels = c(lower_samp_o, higher_samp_o))
 ggplot(dat,aes(sampleid, count_relative, fill = color_label_group_distinct) ) +
   geom_bar(stat = "identity", position="fill", width = 1) +
   theme_classic() +
+  labs(title = 'stacked bar sorted with hclust and divided to lower and higher diversity') +
   theme(axis.text.x = element_text(angle = 90),
         axis.text.y = element_blank(),
         legend.position = "none") +
-  scale_fill_manual(values = asv_color_set)
+  scale_fill_manual(values = asv_color_set) +
+  ggsave('../figs/amplicon/stacked_bar_sorted_with_hclust_lower_and_higher_diversity.pdf', width = 7, height = 5)
 ```
