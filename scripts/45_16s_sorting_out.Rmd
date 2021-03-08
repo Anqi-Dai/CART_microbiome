@@ -19,8 +19,7 @@ This script will be cleaning and organizing the 16s samples
 ustb <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/samples/sample_mapping_UPenn.xlsx') 
 
 uptb <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/U Penn/patients/upenn_essential_data_v3.xlsx', sheet = 3) %>% 
-  filter(!is.na(gender))
-
+  filter(sequenced == 'yes')
 ```
 
 ```{r}
@@ -85,7 +84,7 @@ m <- m_meta_b %>%
   rename(pt_id = mrn) %>% 
   select(-last_followup) %>% 
   mutate(center = 'M') %>% 
-  mutate(icansgrade = as.character(icansgrade))
+  select(-cr_overall) # this column is now gone
 
 p <- u_meta_b %>%   
   mutate(time_group = 'Baseline') %>% 
@@ -101,6 +100,8 @@ combined <- bind_rows(m, p)
 ## also get the alpha diversity here 
 
 ```{r}
+library(vdbR)
+connect_database('~/dbConfig.txt')
 get_table_from_database('asv_alpha_diversity_ag')
 
 combined_join <- combined %>% 
