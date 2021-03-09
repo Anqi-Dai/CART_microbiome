@@ -1,10 +1,16 @@
 ---
 title: "Bayesian 5 taxa family"
-output: html_document
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3 
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 ```
 
 ```{r}
@@ -15,6 +21,7 @@ library(ggmcmc)
 ```
 
 Model:
+
 - CR_d100 ~ Faecalibacterium + Ruminococcus + Akkermansia + Bacteroides + Enterococcus
 
 - Toxicity ~ Faecalibacterium + Ruminococcus + Akkermansia + Bacteroides + Enterococcus
@@ -39,7 +46,7 @@ dat_cr <- dat %>%
 ```
 
 ```{r}
-# the model
+# the model 
 tox <- brm( toxicity  ~ 
               Akkermansia +
               Bacteroides +
@@ -49,8 +56,38 @@ tox <- brm( toxicity  ~
                (1 | pt_id) ,  
               data = dat, 
               family = bernoulli(), 
-              warmup = 1000, iter = 3000, 
-              cores = 8, chains = 4, 
-              seed = 123)
+              warmup = 5000, iter = 40000, 
+              cores = 8, chains = 2, 
+              seed = 123)  
+
+# It's giving errors: "Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+# Running the chains for more iterations may help"
 ```
 
+```{r}
+# Sean suggested to use individual genus first, good idea. 
+# do 5 iteratively in a loop
+target <- c('Akkermansia','Bacteroides','Enterococcus','Faecalibacterium','Ruminococcus')
+
+ret <- target %>% 
+  set_names(target) %>% 
+  map(function(genus) {
+      mod =  brm( as.formula(str_glue('toxicity  ~ 
+              {genus} +
+               (1 | pt_id)')),  
+             data = dat, 
+              family = bernoulli(), 
+              warmup = 3000, iter = 10000, 
+              cores = 8, chains = 2, 
+              seed = 123) 
+      
+      res = posterior_samples(mod) %>% 
+              select(starts_with('b')) %>% 
+              select(-b_Intercept)
+      return(res)
+  }) %>% 
+  bind_cols()
+
+
+  
+```

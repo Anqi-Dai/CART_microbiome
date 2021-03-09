@@ -130,7 +130,7 @@ make %>%
          scale_fill_manual(values = c('#0099B4','#AD002A')) +
             labs(title = str_glue('Response to {.y}') ,
                  y = 'Score')+ 
-            ggsave(str_glue('../data/shotgun_output/humann3/pull_{.y}_pathway.pdf'), device = 'pdf', width = 8))
+            ggsave(str_glue('../data/shotgun_output/humann3/pull_{.y}_pathway.pdf'), device = 'pdf', width = 12, height = 20))
             #ggsave(str_glue('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/shotgun_results/NEW_humann3_version/pathway/pull_{.y}_pathway.pdf'), device = 'pdf', width = 12))
             
 make %>% 
