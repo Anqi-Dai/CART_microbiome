@@ -1,7 +1,7 @@
 ---
 title: "Comparisons in three center"
 output: html_document
----
+--- 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
-SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN
+SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN 
 
 ```{r}
 pheno <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>% 

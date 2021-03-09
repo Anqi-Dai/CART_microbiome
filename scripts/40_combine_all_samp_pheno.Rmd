@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
+This is the script that sorts out the pheno table for shotgun data.
+
 ```{r}
 # all centers pheno file 
 # to get the baseline sampleid 

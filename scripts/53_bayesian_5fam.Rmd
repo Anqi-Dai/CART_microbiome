@@ -1,0 +1,56 @@
+---
+title: "Bayesian 5 taxa family"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(brms)   
+library(ggmcmc)
+```
+
+Model:
+- CR_d100 ~ Faecalibacterium + Ruminococcus + Akkermansia + Bacteroides + Enterococcus
+
+- Toxicity ~ Faecalibacterium + Ruminococcus + Akkermansia + Bacteroides + Enterococcus
+
+```{r}
+# the data
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+genus <- read_csv('../data/amplicon/stool/counts_genus_combined.csv') %>% 
+  filter(genus %in% c('Faecalibacterium','Ruminococcus','Akkermansia','Bacteroides','Enterococcus')) %>% 
+  select(-center) %>% 
+  mutate(relablog = log10(relab + 2*10^-6)) %>% 
+  select(-relab) %>% 
+  spread(key = 'genus', value = 'relablog') 
+     
+dat <- meta %>% 
+  full_join(genus) %>% 
+  mutate(toxicity = factor(toxicity, levels = c('no','yes')))
+
+dat_cr <- dat %>% 
+  filter(cr_d100 %in% c('yes','no')) %>% 
+  mutate(cr_d100 = factor(cr_d100, levels = c('no','yes')))
+```
+
+```{r}
+# the model
+tox <- brm( toxicity  ~ 
+              Akkermansia +
+              Bacteroides +
+              Enterococcus +
+              Faecalibacterium +
+              Ruminococcus +
+               (1 | pt_id) ,  
+              data = dat, 
+              family = bernoulli(), 
+              warmup = 1000, iter = 3000, 
+              cores = 8, chains = 4, 
+              seed = 123)
+```
+
