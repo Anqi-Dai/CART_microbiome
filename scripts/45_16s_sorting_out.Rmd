@@ -30,8 +30,7 @@ mstb <- read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/
  
 mptb_ineli <-  read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/patients/msk_essential_data_v4.xlsx', sheet = 2)
 mptb <-  read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/patients/msk_essential_data_v4.xlsx', sheet = 1) %>% 
-  mutate(mrn = as.numeric(mrn)) %>% 
-  filter(! mrn %in% mptb_ineli$pt_id)
+  filter(! pt_id %in% mptb_ineli$pt_id)
   
 ```
 
@@ -40,7 +39,7 @@ mptb <-  read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/patient
 ```{r}
 m_meta_b <- mstb %>% 
   filter(str_detect(time_group, '^Baseline')) %>% 
-  inner_join(mptb, by = "mrn")
+  inner_join(mptb, by = c('mrn' = 'pt_id'))
 
 
 u_meta_b <- ustb %>% 
@@ -84,7 +83,7 @@ m <- m_meta_b %>%
   rename(pt_id = mrn) %>% 
   select(-last_followup) %>% 
   mutate(center = 'M') %>% 
-  select(-cr_overall) # this column is now gone
+  select(pt_id:vital_status, center) # there are several more columns in the msk table now 
 
 p <- u_meta_b %>%   
   mutate(time_group = 'Baseline') %>% 

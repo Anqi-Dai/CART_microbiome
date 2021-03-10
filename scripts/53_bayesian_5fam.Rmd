@@ -47,18 +47,18 @@ dat_cr <- dat %>%
 
 ```{r}
 # the model 
-tox <- brm( toxicity  ~ 
-              Akkermansia +
-              Bacteroides +
-              Enterococcus +
-              Faecalibacterium +
-              Ruminococcus +
-               (1 | pt_id) ,  
-              data = dat, 
-              family = bernoulli(), 
-              warmup = 5000, iter = 40000, 
-              cores = 8, chains = 2, 
-              seed = 123)  
+# tox <- brm( toxicity  ~ 
+#               Akkermansia +
+#               Bacteroides +
+#               Enterococcus +
+#               Faecalibacterium +
+#               Ruminococcus +
+#                (1 | pt_id) ,  
+#               data = dat, 
+#               family = bernoulli(), 
+#               warmup = 5000, iter = 40000, 
+#               cores = 8, chains = 2, 
+#               seed = 123)  
 
 # It's giving errors: "Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
 # Running the chains for more iterations may help"
@@ -85,9 +85,76 @@ ret <- target %>%
               select(starts_with('b')) %>% 
               select(-b_Intercept)
       return(res)
-  }) %>% 
-  bind_cols()
+  }) %>%  
+  bind_cols() %>% 
+  gather('genus','coeff')
+```
 
+```{r}
+# plotting in ridge plot
+df <- ret %>% 
+  group_by(genus) %>% 
+  mutate(meanpergenus = mean(coeff))%>%
+  ungroup()  %>% 
+  mutate(genus = str_replace(genus, 'b_',''))
 
-  
+ggplot()+
+  ggridges::geom_density_ridges(data  = df, 
+                                aes(x      = coeff,
+                                    y      = reorder(as.factor(genus), meanpergenus),
+                                    height = ..density..),
+                                scale = 1, size = 0.25,
+                                alpha = 0.6) +
+  geom_vline(xintercept = 0, col = "red", linetype = 'dashed', size = 1) +
+  #scale_x_continuous(limits = c(-0.02,0.03)) +
+  labs(y = '',
+       title = 'Response: toxicity') +
+  ggthemes::theme_tufte() +
+  theme(axis.text.y = element_text(size=20),
+        axis.text.x = element_text(size=15)) +
+  ggsave('../figs/bayesian_genus_5_each_toxicity.jpg', width = 8)    
+```
+
+```{r}
+# also when the response is cr_d100
+ret_CR <- target %>% 
+  set_names(target) %>% 
+  map(function(genus) {
+      mod =  brm( as.formula(str_glue('cr_d100  ~ 
+              {genus} +
+               (1 | pt_id)')),  
+             data = dat_cr, 
+              family = bernoulli(), 
+              warmup = 3000, iter = 10000, 
+              cores = 8, chains = 2, 
+              seed = 123) 
+      
+      res = posterior_samples(mod) %>% 
+              select(starts_with('b')) %>% 
+              select(-b_Intercept)
+      return(res)
+  }) %>%  
+  bind_cols() %>% 
+  gather('genus','coeff')
+```
+```{r}
+ret_CR %>% 
+  group_by(genus) %>% 
+  mutate(meanpergenus = mean(coeff))%>%
+  ungroup()  %>% 
+  mutate(genus = str_replace(genus, 'b_','')) %>% 
+  ggplot()+
+  ggridges::geom_density_ridges(aes(x      = coeff,
+                                    y      = reorder(as.factor(genus), meanpergenus),
+                                    height = ..density..),
+                                scale = 1, size = 0.25,
+                                alpha = 0.6) +
+  geom_vline(xintercept = 0, col = "red", linetype = 'dashed', size = 1) +
+  #scale_x_continuous(limits = c(-0.02,0.03)) +
+  labs(y = '',
+       title = 'Response: cr_d100') +
+  ggthemes::theme_tufte() +
+  theme(axis.text.y = element_text(size=20),
+        axis.text.x = element_text(size=15)) +
+  ggsave('../figs/bayesian_genus_5_each_CR.jpg', width = 8)   
 ```
