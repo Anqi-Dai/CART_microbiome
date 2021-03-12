@@ -1,12 +1,12 @@
 ---
 title: "rethinking antibiotics"
-output: html_document
+output: html_document 
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
+ 
 ```{r}
 library(rethinking)
 library(tidyverse)  
@@ -17,6 +17,10 @@ library(jtools) #for transformaing model summaries
 library(ROCR)
 ```
 
+# CR/Toxicity ~ abx + center
+
+## Toxicity
+
 ```{r}
 # none of the patients from Penn received the 3 anaerobe-targeting antibiotics in the 4 weeks prior to CAR T cell infusion
 # msk table
@@ -24,6 +28,28 @@ m <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/ant
   select(pt_id, anaerobe_targeting)
 
 meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv') %>% 
-  left_join(m)
+  left_join(m) %>% 
+  mutate(anaerobe_targeting = if_else(is.na(anaerobe_targeting), 'no', anaerobe_targeting)) %>% 
+  mutate(anaerobe = if_else(anaerobe_targeting == 'no', 0, 1))
+
+set.seed(123)
+dat_list <- list(
+    tox = meta$tox,
+    cr100 = meta$cr100,
+    location = meta$loca,
+    anaerobe = meta$anaerobe
+    )
+```
+
+```{r}   
+atox <- ulam(
+    alist(
+        tox ~ dbinom( 1 , p ) ,
+        logit(p) <- b*div_std + a[location] ,
+        b ~ dnorm( 0 , 2), # the std of 2 is made by the later prior check
+        a[location] ~ dnorm( 0 , 0.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+precis(mtox, depth = 2)
+plot(precis(mtox, depth = 2) ) 
 ```
 
