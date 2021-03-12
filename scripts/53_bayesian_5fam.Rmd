@@ -43,6 +43,11 @@ dat <- meta %>%
 dat_cr <- dat %>% 
   filter(cr_d100 %in% c('yes','no')) %>% 
   mutate(cr_d100 = factor(cr_d100, levels = c('no','yes')))
+
+# write out the sample and the log 10 genera 
+dat %>% 
+  select(sampleid, Akkermansia:Ruminococcus) %>% 
+  write_csv('../data/amplicon/stool/combined_5_genera.csv')
 ```
 
 ```{r}
