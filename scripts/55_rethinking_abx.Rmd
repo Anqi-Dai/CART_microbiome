@@ -1,0 +1,29 @@
+---
+title: "rethinking antibiotics"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rethinking)
+library(tidyverse)  
+library(haven) #for reading sav data
+library(sjstats) #for calculating intra-class correlation (ICC)
+library(effects) #for plotting parameter effects
+library(jtools) #for transformaing model summaries
+library(ROCR)
+```
+
+```{r}
+# none of the patients from Penn received the 3 anaerobe-targeting antibiotics in the 4 weeks prior to CAR T cell infusion
+# msk table
+m <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/antibiotics/sean_table/abx_table_msk_sean.xlsx') %>% 
+  select(pt_id, anaerobe_targeting)
+
+meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv') %>% 
+  left_join(m)
+```
+

@@ -1,23 +1,44 @@
 ---
 title: "the rethinking way of doing the binary outcome modeling"
-output: html_document
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 ```
 
 ```{r}
 library(rethinking)
 library(tidyverse)  
+library(haven) #for reading sav data
+library(sjstats) #for calculating intra-class correlation (ICC)
+library(effects) #for plotting parameter effects
+library(jtools) #for transformaing model summaries
+library(ROCR)
 ```
+
+# CR/Toxicity ~ alpha diversity + center
+
+## Toxicity 
 
 ```{r}
 meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') %>% 
-  mutate(logdiv_s = scale(log(meta$simpson_reciprocal))) %>% 
+  mutate(div_std = scale(simpson_reciprocal)) %>%  # diversity is scaled 
   mutate(tox = if_else(toxicity == 'yes', 1, 0),
          cr100 = if_else(cr_d100 == 'yes', 1, 0),
-         loca = if_else(center == 'M', 1, 2))
+         loca = if_else(center == 'M', 1, 2)) %>%  # MSK 1 ; Upenn 2
+  mutate(center = factor(center),
+         toxicity = factor(toxicity, levels = c('no','yes')),
+         cr_d100 = factor(cr_d100, levels = c('no','yes')))
+
+
+meta %>% write_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')
 ```
 
 ```{r}
@@ -27,21 +48,107 @@ table(meta$toxicity)
 hist(meta$simpson_reciprocal)
 hist(log(meta$simpson_reciprocal)) # I think I should use log transformed
 table(meta$center)
+table(meta$toxicity, meta$center)
+table(meta$cr_d100, meta$center)   
+range(meta$div_std)
 ```
 ```{r}
+set.seed(123)
 dat_list <- list(
     tox = meta$tox,
     cr100 = meta$cr100,
     location = meta$loca,
-    logdivs = meta$logdiv_s
+    div_std = meta$div_std
     )
 
 mtox <- ulam(
     alist(
         tox ~ dbinom( 1 , p ) ,
-        logit(p) <- b*logdivs + a[location] ,
-        b ~ dnorm( 0 , 1),
+        logit(p) <- b*div_std + a[location] ,
+        b ~ dnorm( 0 , 2), # the std of 2 is made by the later prior check
         a[location] ~ dnorm( 0 , 0.5 )
-    ) , data=dat_list , chains=4 , log_lik=TRUE )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+
+precis(mtox, depth = 2)
+plot(precis(mtox, depth = 2) ) 
+# there is baseline difference between penn and Msk and MSK has higher tox rage in general.
+# it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
+```
+
+```{r}
+# doing a prior check
+prior <- extract.prior( mtox , n=1e4 ) 
+# don't know how to put in logdivs into this prior check
+divs_samp <- sample(meta$div_std, size = 1e4, replace = T)
+p <- sapply( 1:2 , function(k) inv_logit( prior$b * divs_samp + prior$a[,k] ) )
+mean( abs( p[,1] - p[,2] ) )
+dens(abs( p[,1] - p[,2] ), adj = 0.1) # seems the difference is a bit too high
+```
+
+```{r}
+# posterior prediction check
+ 
+# the raw proportion of yes toxicity in each place
+rawtox <- meta  %>% 
+  count(center, toxicity) %>% 
+  left_join(meta %>% 
+              count(center, name = 'total'), by = 'center') %>% 
+  group_by(center, toxicity) %>% 
+  summarise(frac = round(n/total, 2)) %>% 
+  filter(toxicity == 'yes')
+  
+  
+# don't know how to do the post check since the diversity is continuous variable
+
+```
+
+```{r}
+# I also want to do it in the glm way so that I can compare
+lm_tox <- glm(formula = toxicity ~ simpson_reciprocal + center,
+                    family = binomial(link = "logit"),
+                    data = meta)
+#summary(lm_tox)
+summ(lm_tox, exp = T)# this is the log odds
+
+```
+
+## CR_d100      
+
+```{r}
+mcr <- ulam( 
+    alist( 
+        cr100 ~ dbinom( 1 , p ) ,
+        logit(p) <- b*div_std + a[location] ,
+        b ~ dnorm( 0 , 2), # the std of 2 is made by the later prior check
+        a[location] ~ dnorm( 0 , 0.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+
+precis(mcr, depth = 2)
+plot(precis(mcr, depth = 2) ) 
+# there isn't much difference in baseline level between the centers
+# diversity seems to be positively associating with CR
+
+# if switching to standardized diversity, the positive association is less sure. 
+   
+```
+
+```{r}
+# doing a prior check
+prior <- extract.prior( mcr , n=1e4 ) 
+# don't know how to put in logdivs into this prior check
+divs_samp <- sample(meta$div_std, size = 1e4, replace = T)
+p <- sapply( 1:2 , function(k) inv_logit( prior$b * divs_samp + prior$a[,k] ) )
+mean( abs( p[,1] - p[,2] ) )
+dens(abs( p[,1] - p[,2] ), adj = 0.1)
+```
+
+
+```{r}
+# I also want to do it in the glm way so that I can compare
+lm_cr <- glm(formula = cr_d100 ~ simpson_reciprocal + center,
+                    family = binomial(link = "logit"),
+                    data = meta)
+#summary(lm_tox)
+summ(lm_cr, exp = T)# this is the log odds
 ```
 
