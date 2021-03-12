@@ -38,11 +38,12 @@ dat_list <- list(
     tox = meta$tox,
     cr100 = meta$cr100,
     location = meta$loca,
-    A_std = meta$A_std,
-    B_std = meta$B_std,
-    E_std = meta$E_std,
-    F_std = meta$F_std,
-    R_std = meta$R_std
+    Akkermansia = meta$Akkermansia,
+    Bacteroides = meta$Bacteroides,
+    Enterococcus = meta$Enterococcus,
+    Faecalibacterium = meta$Faecalibacterium,
+    Ruminococcus = meta$Ruminococcus
+    
     ) 
 ```
 
@@ -50,7 +51,7 @@ dat_list <- list(
 gtox <- ulam(
     alist(
         tox ~ dbinom( 1 , p ) ,
-        logit(p) <- ba*A_std + bb*B_std + be*E_std + bf*F_std + br*R_std + a[location] ,
+        logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + a[location] ,
         ba ~ dnorm( 0 , 1),
         bb ~ dnorm( 0 , 1),
         be ~ dnorm( 0 , 1),
@@ -69,7 +70,7 @@ plot(precis(gtox, depth = 2) )
 gcr <- ulam(
     alist(
         cr100 ~ dbinom( 1 , p ) ,
-        logit(p) <- ba*A_std + bb*B_std + be*E_std + bf*F_std + br*R_std + a[location] ,
+        logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + a[location] ,
         ba ~ dnorm( 0 , 1),
         bb ~ dnorm( 0 , 1),
         be ~ dnorm( 0 , 1),

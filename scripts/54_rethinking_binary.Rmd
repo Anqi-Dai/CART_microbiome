@@ -16,11 +16,6 @@ knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 ```{r}
 library(rethinking)
 library(tidyverse)  
-library(haven) #for reading sav data
-library(sjstats) #for calculating intra-class correlation (ICC)
-library(effects) #for plotting parameter effects
-library(jtools) #for transformaing model summaries
-library(ROCR)
 ```
 
 # CR/Toxicity ~ alpha diversity + center
@@ -29,7 +24,7 @@ library(ROCR)
 
 ```{r}
 meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') %>% 
-  mutate(div_std = scale(simpson_reciprocal)) %>%  # diversity is scaled 
+  mutate(logdiv_s = scale(log(meta$simpson_reciprocal))) %>%  # diversity is scaled 
   mutate(tox = if_else(toxicity == 'yes', 1, 0),
          cr100 = if_else(cr_d100 == 'yes', 1, 0),
          loca = if_else(center == 'M', 1, 2)) %>%  # MSK 1 ; Upenn 2
@@ -45,27 +40,28 @@ meta %>% write_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')
 # visualize the var distribution 
 table(meta$cr_d100)  
 table(meta$toxicity)
-hist(meta$simpson_reciprocal)
-hist(log(meta$simpson_reciprocal)) # I think I should use log transformed
+#hist(meta$simpson_reciprocal)
+#hist(log(meta$simpson_reciprocal)) # I think I should use log transformed
 table(meta$center)
 table(meta$toxicity, meta$center)
 table(meta$cr_d100, meta$center)   
-range(meta$div_std)
+range(meta$logdiv_s)
 ```
+
 ```{r}
 set.seed(123)
 dat_list <- list(
     tox = meta$tox,
     cr100 = meta$cr100,
     location = meta$loca,
-    div_std = meta$div_std
+    logdiv_s = meta$logdiv_s
     )
 
 mtox <- ulam(
     alist(
         tox ~ dbinom( 1 , p ) ,
-        logit(p) <- b*div_std + a[location] ,
-        b ~ dnorm( 0 , 2), # the std of 2 is made by the later prior check
+        logit(p) <- b*logdiv_s + a[location] ,
+        b ~ dnorm( 0 , 0.25), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
 
@@ -75,19 +71,46 @@ plot(precis(mtox, depth = 2) )
 # it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
 ```
 
+### Prior
+
 ```{r}
 # doing a prior check
 prior <- extract.prior( mtox , n=1e4 ) 
-# don't know how to put in logdivs into this prior check
-divs_samp <- sample(meta$div_std, size = 1e4, replace = T)
-p <- sapply( 1:2 , function(k) inv_logit( prior$b * divs_samp + prior$a[,k] ) )
+# the diff in the probabilty of yes to toxicity when there are two std diff in diversity in each of the centers 
+# for msk  
+div_value <- c(-1, 1)
+p <- sapply( 1:2 , function(k) inv_logit( prior$b * div_value[k] + prior$a[,1] ) )
 mean( abs( p[,1] - p[,2] ) )
-dens(abs( p[,1] - p[,2] ), adj = 0.1) # seems the difference is a bit too high
+# the probability difference is pretty big !  # so reduced the std of the b from 1.5 to 0.25
+
+# for upenn
+p <- sapply( 1:2 , function(k) inv_logit( prior$b * div_value[k] + prior$a[,2] ) )
+mean( abs( p[,1] - p[,2] ) )
 ```
+
+### Posterior
 
 ```{r}
 # posterior prediction check
- 
+post <- extract.samples(mtox)
+post_tox <- list(m = 1, p = 2) %>% 
+  map(function(center_){
+    cols = seq(1, length(div_value)) %>% 
+      set_names(seq(1, length(div_value))) %>% 
+      map(function(idx){
+         inv_logit( post$b * div_value[idx] + post$a[, center_] ) 
+      })
+    
+    ret = mean(abs( cols[[1]] -cols[[2]] ) )
+    return(ret)
+    
+  })
+
+```
+
+
+
+```{r}
 # the raw proportion of yes toxicity in each place
 rawtox <- meta  %>% 
   count(center, toxicity) %>% 
@@ -102,15 +125,7 @@ rawtox <- meta  %>%
 
 ```
 
-```{r}
-# I also want to do it in the glm way so that I can compare
-lm_tox <- glm(formula = toxicity ~ simpson_reciprocal + center,
-                    family = binomial(link = "logit"),
-                    data = meta)
-#summary(lm_tox)
-summ(lm_tox, exp = T)# this is the log odds
 
-```
 
 ## CR_d100      
 
@@ -118,8 +133,8 @@ summ(lm_tox, exp = T)# this is the log odds
 mcr <- ulam( 
     alist( 
         cr100 ~ dbinom( 1 , p ) ,
-        logit(p) <- b*div_std + a[location] ,
-        b ~ dnorm( 0 , 2), # the std of 2 is made by the later prior check
+        logit(p) <- b*logdiv_s + a[location] ,
+        b ~ dnorm( 0 , 1.5), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
 
@@ -136,19 +151,9 @@ plot(precis(mcr, depth = 2) )
 # doing a prior check
 prior <- extract.prior( mcr , n=1e4 ) 
 # don't know how to put in logdivs into this prior check
-divs_samp <- sample(meta$div_std, size = 1e4, replace = T)
+divs_samp <- sample(meta$logdiv_s, size = 1e4, replace = T)
 p <- sapply( 1:2 , function(k) inv_logit( prior$b * divs_samp + prior$a[,k] ) )
 mean( abs( p[,1] - p[,2] ) )
 dens(abs( p[,1] - p[,2] ), adj = 0.1)
-```
-
-
-```{r}
-# I also want to do it in the glm way so that I can compare
-lm_cr <- glm(formula = cr_d100 ~ simpson_reciprocal + center,
-                    family = binomial(link = "logit"),
-                    data = meta)
-#summary(lm_tox)
-summ(lm_cr, exp = T)# this is the log odds
 ```
 

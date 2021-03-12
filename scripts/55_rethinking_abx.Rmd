@@ -36,7 +36,7 @@ m <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/ant
 meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv') %>% 
   left_join(m) %>% 
   mutate(anaerobe_targeting = if_else(is.na(anaerobe_targeting), 'no', anaerobe_targeting)) %>% 
-  mutate(anaerobe = if_else(anaerobe_targeting == 'no', 1, 2))
+  mutate(anaerobe = if_else(anaerobe_targeting == 'no', 0, 1))
 
 set.seed(123)
 dat_list <- list(
@@ -54,8 +54,8 @@ meta %>%
 atox <- ulam(
     alist(
         tox ~ dbinom( 1 , p ) ,
-        logit(p) <- b[anaerobe] + a[location] ,
-        b[anaerobe] ~ dnorm( 0 , 1), 
+        logit(p) <- b*anaerobe + a[location] ,
+        b ~ dnorm( 0 , 1), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
 precis(atox, depth = 2)
@@ -70,8 +70,8 @@ plot(precis(atox, depth = 2) )
 acr <- ulam(  
     alist(
         cr100 ~ dbinom( 1 , p ) ,
-        logit(p) <- b[anaerobe] + a[location] ,
-        b[anaerobe] ~ dnorm( 0 , 1), 
+        logit(p) <- b*anaerobe + a[location] ,
+        b ~ dnorm( 0 , 1), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
 precis(acr, depth = 2)
