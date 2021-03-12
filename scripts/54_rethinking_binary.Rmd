@@ -15,7 +15,8 @@ knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 
 ```{r}
 library(rethinking)
-library(tidyverse)  
+library(tidyverse) 
+library(ggpubr)
 ```
 
 # CR/Toxicity ~ alpha diversity + center
@@ -79,13 +80,20 @@ prior <- extract.prior( mtox , n=1e4 )
 # the diff in the probabilty of yes to toxicity when there are two std diff in diversity in each of the centers 
 # for msk  
 div_value <- c(-1, 1)
-p <- sapply( 1:2 , function(k) inv_logit( prior$b * div_value[k] + prior$a[,1] ) )
-mean( abs( p[,1] - p[,2] ) )
-# the probability difference is pretty big !  # so reduced the std of the b from 1.5 to 0.25
 
-# for upenn
-p <- sapply( 1:2 , function(k) inv_logit( prior$b * div_value[k] + prior$a[,2] ) )
-mean( abs( p[,1] - p[,2] ) )
+# make it into a function so that I can do the m and p the same time
+prior_tox <- list(m = 1, p = 2) %>% 
+  map(function(center_){
+    cols = seq(1, length(div_value)) %>% 
+      set_names(seq(1, length(div_value))) %>% 
+      map(function(idx){
+         inv_logit( prior$b * div_value[idx] + prior$a[, center_] ) 
+      })
+    
+    diff = abs( cols[[1]] -cols[[2]] )
+    ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
+    return(ret)
+  }) 
 ```
 
 ### Posterior
@@ -101,13 +109,29 @@ post_tox <- list(m = 1, p = 2) %>%
          inv_logit( post$b * div_value[idx] + post$a[, center_] ) 
       })
     
-    ret = mean(abs( cols[[1]] -cols[[2]] ) )
+    diff = abs( cols[[1]] -cols[[2]] )
+    ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
     return(ret)
-    
-  })
-
+  }) 
 ```
 
+```{r}
+# visualize the prior and post together
+tox <- bind_rows(
+  bind_cols(prior_tox, grp ='prior', quant = c(0.025, 0.5, 0.975)),
+  bind_cols(post_tox, grp ='post', quant = c(0.025, 0.5, 0.975))
+)  %>% 
+  gather('center', 'value', m:p) %>% 
+  spread('quant', 'value') %>% 
+  mutate(grp = factor(grp, levels = c('prior','post')))
+tox
+```
+```{r}
+tox %>% 
+  ggscatter(x = 'center', y = '0.5', color = 'red', facet.by = 'grp', ylab = '', title = 'Difference in probability of responding yes when the diversity is 2 std apart') +
+  geom_pointrange(aes( ymin  = `0.025`,ymax  = `0.975`), fatten = 5, col = 'red') +
+  ylim(0,1) 
+```
 
 
 ```{r}
@@ -120,11 +144,8 @@ rawtox <- meta  %>%
   summarise(frac = round(n/total, 2)) %>% 
   filter(toxicity == 'yes')
   
-  
-# don't know how to do the post check since the diversity is continuous variable
 
 ```
-
 
 
 ## CR_d100      
