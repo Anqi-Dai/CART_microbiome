@@ -25,7 +25,7 @@ library(ggpubr)
 
 ```{r}
 meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') %>% 
-  mutate(logdiv_s = scale(log(meta$simpson_reciprocal))) %>%  # diversity is scaled 
+  mutate(logdiv_s = scale(log(simpson_reciprocal))) %>%  # diversity is scaled 
   mutate(tox = if_else(toxicity == 'yes', 1, 0),
          cr100 = if_else(cr_d100 == 'yes', 1, 0),
          loca = if_else(center == 'M', 1, 2)) %>%  # MSK 1 ; Upenn 2
@@ -62,12 +62,13 @@ mtox <- ulam(
     alist(
         tox ~ dbinom( 1 , p ) ,
         logit(p) <- b*logdiv_s + a[location] ,
-        b ~ dnorm( 0 , 0.25), 
+        b ~ dnorm( 0 , 2), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
 
-precis(mtox, depth = 2)
-plot(precis(mtox, depth = 2) ) 
+# the std of b is 2, since we assume the microbiome could have big impact on immunology (based on our previous understanding and knowledge )
+#precis(mtox, depth = 2)
+plot(precis(mtox, depth = 2, prob = 0.95) ) 
 # there is baseline difference between penn and Msk and MSK has higher tox rage in general.
 # it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
 ```
@@ -111,9 +112,23 @@ post_tox <- list(m = 1, p = 2) %>%
     
     diff = abs( cols[[1]] -cols[[2]] )
     ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
-    return(ret)
-  }) 
+    return(cols)
+  }) # here I'm returning the cols instead of the diff 
 ```
+
+```{r}
+# posterior check for tox
+# see the coeff distribution directly without going to the difference 
+c('m','p') %>% 
+  map(function(x){ tibble(
+           post_low = post_tox %>% pluck(x) %>% pluck(1),
+           post_high = post_tox %>% pluck(x) %>% pluck(2)
+          )  %>% gather() %>% 
+      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
+      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+      facet_grid(key ~ .)})
+```
+
 
 ```{r}
 # visualize the prior and post together
@@ -155,26 +170,86 @@ mcr <- ulam(
     alist( 
         cr100 ~ dbinom( 1 , p ) ,
         logit(p) <- b*logdiv_s + a[location] ,
-        b ~ dnorm( 0 , 1.5), 
+        b ~ dnorm( 0 , 2),  
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
 
-precis(mcr, depth = 2)
-plot(precis(mcr, depth = 2) ) 
+#precis(mcr, depth = 2)
+plot(precis(mcr, depth = 2, prob = 0.95) ) 
 # there isn't much difference in baseline level between the centers
-# diversity seems to be positively associating with CR
-
-# if switching to standardized diversity, the positive association is less sure. 
-   
+# diversity seems to be positively associating with CR when the prior is too large sd
+# if using appropriate prior the association is less sure
+ 
 ```
 
 ```{r}
 # doing a prior check
 prior <- extract.prior( mcr , n=1e4 ) 
-# don't know how to put in logdivs into this prior check
-divs_samp <- sample(meta$logdiv_s, size = 1e4, replace = T)
-p <- sapply( 1:2 , function(k) inv_logit( prior$b * divs_samp + prior$a[,k] ) )
-mean( abs( p[,1] - p[,2] ) )
-dens(abs( p[,1] - p[,2] ), adj = 0.1)
+
+prior_cr <- list(m = 1, p = 2) %>% 
+  map(function(center_){
+    cols = seq(1, length(div_value)) %>% 
+      set_names(seq(1, length(div_value))) %>% 
+      map(function(idx){
+         inv_logit( prior$b * div_value[idx] + prior$a[, center_] ) 
+      })
+    
+    diff = abs( cols[[1]] -cols[[2]] )
+    ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
+    return(cols)
+  })
+```
+
+
+```{r}
+# posterior prediction check
+post <- extract.samples(mcr)
+post_cr <- list(m = 1, p = 2) %>% 
+  map(function(center_){
+    cols = seq(1, length(div_value)) %>% 
+      set_names(seq(1, length(div_value))) %>% 
+      map(function(idx){
+         inv_logit( post$b * div_value[idx] + post$a[, center_] ) 
+      })
+    
+    diff = abs( cols[[1]] -cols[[2]] )
+    ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
+    return(cols)
+  }) 
+```
+
+```{r}
+# the below is when the returned value is the difference between the low and high
+# bind_rows(
+#   bind_cols(prior_cr, grp ='prior', quant = c(0.025, 0.5, 0.975)),
+#   bind_cols(post_cr, grp ='post', quant = c(0.025, 0.5, 0.975))
+# )  %>% 
+#   gather('center', 'value', m:p) %>% 
+#   spread('quant', 'value') %>% 
+#   mutate(grp = factor(grp, levels = c('prior','post'))) %>% 
+#   ggscatter(x = 'center', y = '0.5', color = 'red', facet.by = 'grp', ylab = '', title = 'Difference in probability of responding yes when the diversity is 2 std apart') +
+#   geom_pointrange(aes( ymin  = `0.025`,ymax  = `0.975`), fatten = 5, col = 'red') +
+#   ylim(0,1) 
+```
+```{r}
+# plot the histogram of the probs corresponding to low and high diversity
+# msk
+tibble(
+  prior_low = prior_cr %>% pluck('m') %>% pluck(1),
+  prior_high = prior_cr %>% pluck('m') %>% pluck(2)
+)%>% gather() %>% 
+  gghistogram(x = 'value')+
+  facet_grid(key ~ .)
+
+# posterior 
+# do the M and P in one function
+c('m','p') %>% 
+  map(function(x){ tibble(
+           post_low = post_cr %>% pluck(x) %>% pluck(1),
+           post_high = post_cr %>% pluck(x) %>% pluck(2)
+          )  %>% gather() %>% 
+      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
+      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+      facet_grid(key ~ .)})
 ```
 
