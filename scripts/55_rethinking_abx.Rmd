@@ -55,14 +55,48 @@ atox <- ulam(
     alist(
         tox ~ dbinom( 1 , p ) ,
         logit(p) <- b*anaerobe + a[location] ,
-        b ~ dnorm( 0 , 1), 
+        b ~ dnorm( 0 , 1.5), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
-precis(atox, depth = 2)
-plot(precis(atox, depth = 2) ) 
+#precis(atox, depth = 2)
+plot(precis(atox, depth = 2 ,prob = 0.95) ) 
 # seems anaerobe abx is positively linked with toxicity 
 ```
+### Posterior check
 
+```{r}
+abx_val <- c(0, 1)
+post <- extract.samples(atox)
+post_tox <- list(m = 1, p = 2) %>% 
+  map(function(center_){
+    cols = seq(1, length(abx_val)) %>% 
+      set_names(seq(1, length(abx_val))) %>% 
+      map(function(idx){
+         inv_logit( post$b * abx_val[idx] + post$a[, center_] ) 
+      })
+    
+    #diff = abs( cols[[1]] -cols[[2]] )
+    #ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
+    return(cols)
+  })
+
+c('m','p') %>% 
+  map(function(x){ tibble(
+           post_no = post_tox %>% pluck(x) %>% pluck(1),
+           post_yes = post_tox %>% pluck(x) %>% pluck(2)
+          )  %>% gather() %>% 
+      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
+      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+      facet_grid(key ~ .)})
+
+# to find out the mean for MSK
+df <- tibble(
+           post_no = post_tox %>% pluck('m') %>% pluck(1),
+           post_yes = post_tox %>% pluck('m') %>% pluck(2)
+          )  %>% gather()  %>% 
+  group_by(key) %>% 
+  summarise(meancoeff = mean(value))
+```
 
 ## CR day 100 
 
@@ -71,11 +105,45 @@ acr <- ulam(
     alist(
         cr100 ~ dbinom( 1 , p ) ,
         logit(p) <- b*anaerobe + a[location] ,
-        b ~ dnorm( 0 , 1), 
+        b ~ dnorm( 0 , 1.5), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
-precis(acr, depth = 2)
-plot(precis(acr, depth = 2) ) 
+#precis(acr, depth = 2)
+plot(precis(acr, depth = 2, prob = 0.95) ) 
 # nothing interesting 
+```
+### Posterior check
+
+```{r}
+abx_val <- c(0, 1)
+post <- extract.samples(acr)
+post_cr <- list(m = 1, p = 2) %>% 
+  map(function(center_){
+    cols = seq(1, length(abx_val)) %>% 
+      set_names(seq(1, length(abx_val))) %>% 
+      map(function(idx){
+         inv_logit( post$b * abx_val[idx] + post$a[, center_] ) 
+      })
+    
+    #diff = abs( cols[[1]] -cols[[2]] )
+    #ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
+    return(cols)
+  })
+
+c('m','p') %>% 
+  map(function(x){ tibble(
+           post_no = post_cr %>% pluck(x) %>% pluck(1),
+           post_yes = post_cr %>% pluck(x) %>% pluck(2)
+          )  %>% gather() %>% 
+      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
+      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+      facet_grid(key ~ .)})
+
+df <- tibble(
+           post_no = post_cr %>% pluck('m') %>% pluck(1),
+           post_yes = post_cr %>% pluck('m') %>% pluck(2)
+          )  %>% gather()  %>% 
+  group_by(key) %>% 
+  summarise(meancoeff = mean(value))
 ```
 
