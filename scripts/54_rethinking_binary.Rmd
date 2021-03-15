@@ -195,10 +195,10 @@ prior_cr <- list(m = 1, p = 2) %>%
     
     diff = abs( cols[[1]] -cols[[2]] )
     ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
-    return(cols)
+    return(ret)
   })
 ```
-
+### posterior 
 
 ```{r}
 # posterior prediction check
@@ -209,27 +209,11 @@ post_cr <- list(m = 1, p = 2) %>%
       set_names(seq(1, length(div_value))) %>% 
       map(function(idx){
          inv_logit( post$b * div_value[idx] + post$a[, center_] ) 
-      })
-    
-    diff = abs( cols[[1]] -cols[[2]] )
-    ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
+      }) 
     return(cols)
   }) 
 ```
 
-```{r}
-# the below is when the returned value is the difference between the low and high
-# bind_rows(
-#   bind_cols(prior_cr, grp ='prior', quant = c(0.025, 0.5, 0.975)),
-#   bind_cols(post_cr, grp ='post', quant = c(0.025, 0.5, 0.975))
-# )  %>% 
-#   gather('center', 'value', m:p) %>% 
-#   spread('quant', 'value') %>% 
-#   mutate(grp = factor(grp, levels = c('prior','post'))) %>% 
-#   ggscatter(x = 'center', y = '0.5', color = 'red', facet.by = 'grp', ylab = '', title = 'Difference in probability of responding yes when the diversity is 2 std apart') +
-#   geom_pointrange(aes( ymin  = `0.025`,ymax  = `0.975`), fatten = 5, col = 'red') +
-#   ylim(0,1) 
-```
 ```{r}
 # plot the histogram of the probs corresponding to low and high diversity
 # msk
@@ -249,5 +233,59 @@ c('m','p') %>%
           )  %>% gather() %>% 
       gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
       scale_x_continuous(breaks = seq(0, 1, 0.1)) })
+```
+
+```{r}
+# the difference of the probability 
+post_cr <- list(m = 1, p = 2) %>% 
+  map(function(center_){
+    cols = seq(1, length(div_value)) %>% 
+      set_names(seq(1, length(div_value))) %>% 
+      map(function(idx){
+         inv_logit( post$b * div_value[idx] + post$a[, center_] ) 
+      })
+    
+    diff = abs( cols[[1]] -cols[[2]] )
+    ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
+    return(ret)
+  })
+```
+
+ 
+```{r}
+#the below is when the returned value is the difference between the low and high
+diff_prob_post <- bind_rows(
+  bind_cols(prior_cr, grp ='prior', quant = c(0.025, 0.5, 0.975)),
+  bind_cols(post_cr, grp ='post', quant = c(0.025, 0.5, 0.975))
+)  %>%
+  gather('center', 'value', m:p) %>%
+  spread('quant', 'value') %>%
+  mutate(grp = factor(grp, levels = c('prior','post'))) %>%
+  # only showing the post check value
+  filter(grp == 'post')
+# mean at both centers are 0.20 actually 
+
+diff_prob_post  %>% 
+  ggscatter(x = 'center', y = '0.5', color = 'red', facet.by = 'grp', ylab = '', title = 'Difference in probability of responding yes when the diversity is 2 sd apart') +
+  geom_pointrange(aes( ymin  = `0.025`,ymax  = `0.975`), fatten = 5, col = 'red') 
+```
+
+
+```{r}
+#  The two patients with highest and lowest diversity
+# post only 
+# lowest appear in one patient in p; highest is in one patient in M  
+div_l <- min(meta$logdiv_s)
+pl <- inv_logit( post$b * div_l + post$a[, 2] ) 
+
+div_h <- max(meta$logdiv_s) 
+ph <- inv_logit( post$b * div_h + post$a[, 1] ) 
+
+bind_rows(
+  tibble(value = pl, grp = 'lowest'),
+  tibble(value = ph, grp = 'highest')
+) %>% 
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white', add = 'mean', xlab = 'Predicted probability of CR d100', ylab = 'Probability density',
+              title = 'Predicted probability of CR d100 between the pt with highest div and the pt with lowest') 
 ```
 
