@@ -69,31 +69,40 @@ plot(precis(gtox, depth = 2, prob = 0.95) )
 ### posterior check 
 
 ```{r}
-bac_value <- log10(c(0.05, 0.35))
 post <- extract.samples(gtox) 
-# if all the others are the same (10%) and only Bacteroides relative abundance could be 0 or  0.35
-post_tox <- list(m = 1, p = 2) %>% 
-  map(function(center_){
-    cols = seq(1, length(bac_value)) %>% 
-      set_names(seq(1, length(bac_value))) %>% 
-      map(function(idx){
-         inv_logit( post$ba * (-1) + post$bb * bac_value[idx] + post$be * (-1) +  post$bf * (-1) + post$br * (-1) + post$a[, center_] ) 
-      }) 
-    
-    diff = abs( cols[[1]] -cols[[2]] )
-    ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
-    return(cols)
-  }) 
+# using the patient with highest and lowest Bacteroides data to plug in
+# find the patients
+bl <- meta %>% 
+  arrange(Bacteroides) %>% 
+  slice(1) %>% 
+  select(Akkermansia:Ruminococcus)
 
-c('m','p') %>% 
-  map(function(x){ tibble(
-           post_low = post_tox %>% pluck(x) %>% pluck(1),
-           post_high = post_tox %>% pluck(x) %>% pluck(2)
-          )  %>% gather() %>% 
-      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
-      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
-      facet_grid(key ~ .)}) 
+bh <- meta %>% 
+  arrange(-Bacteroides) %>% 
+  slice(1) %>% 
+  select(Akkermansia:Ruminococcus)
 ```
+
+```{r}
+pl <- inv_logit( post$ba * (-1.612806	) + post$bb * (-5.69897		) + post$be * (-5.69897	) +  post$bf * (-5.69897		) + post$br * (-0.5244935) + post$a[, 1] ) 
+
+ph <- inv_logit( post$ba * (-2.286752	) + post$bb * (-0.4575058) + post$be * (-1.745601	) +  post$bf * (-5.69897) + post$br * (-4.050354) + post$a[, 1] )
+
+
+bind_rows(
+  tibble(
+    value = pl,
+    grp = 'low'
+  ),
+  tibble( 
+    value = ph,
+    grp = 'high'
+  )
+) %>% 
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK')
+  
+```
+
 
 
 ## CR
@@ -118,30 +127,37 @@ plot(precis(gcr, depth = 2, prob = 0.95) )
 
 ### posterior check 
 
-```{r}
-rum_value <- log10(c(0.05, 0.5))
-post <- extract.samples(gcr) 
-# if all the others are the same (10%) and only Ruminococcus relative abundance could be 0 or  0.5
-post_cr <- list(m = 1, p = 2) %>% 
-  map(function(center_){
-    cols = seq(1, length(rum_value)) %>% 
-      set_names(seq(1, length(rum_value))) %>% 
-      map(function(idx){
-         inv_logit( post$ba * (-1) + post$bb * rum_value[idx] + post$be * (-1) +  post$bf * (-1) + post$br * (-1) + post$a[, center_] ) 
-      }) 
-    
-    diff = abs( cols[[1]] -cols[[2]] )
-    ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
-    return(cols)
-  })  
 
-c('m','p') %>% 
-  map(function(x){ tibble(
-           post_low = post_cr %>% pluck(x) %>% pluck(1),
-           post_high = post_cr %>% pluck(x) %>% pluck(2)
-          )  %>% gather() %>% 
-      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
-      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
-      facet_grid(key ~ .)}) 
+```{r}
+post <- extract.samples(gcr) 
+# using the patient with highest and lowest Ruminococcus data to plug in
+# find the patients
+rl <- meta %>% 
+  arrange(Ruminococcus) %>% 
+  slice(1) %>% 
+  select(Akkermansia:Ruminococcus)
+
+rh <- meta %>% 
+  arrange(-Ruminococcus) %>% 
+  slice(1) %>% 
+  select(Akkermansia:Ruminococcus)
+
+pl <- inv_logit( post$ba * (-3.517128) + post$bb * (-2.447201	) + post$be * (-2.504205	) +  post$bf * (-5.69897	) + post$br * (-5.69897) + post$a[, 1] ) 
+
+ph <- inv_logit( post$ba * (-1.845325	) + post$bb * (-3.052386) + post$be * (-5.69897) +  post$bf * (-5.69897) + post$br * (-0.373353) + post$a[, 1] )
+
+
+bind_rows(
+  tibble(
+    value = pl,
+    grp = 'low'
+  ),
+  tibble( 
+    value = ph,
+    grp = 'high'
+  )
+) %>% 
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK')
+   
 ```
 
