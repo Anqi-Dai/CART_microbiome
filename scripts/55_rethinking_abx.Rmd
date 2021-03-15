@@ -16,11 +16,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
 ```{r}
 library(rethinking)
 library(tidyverse)  
-library(haven) #for reading sav data
-library(sjstats) #for calculating intra-class correlation (ICC)
-library(effects) #for plotting parameter effects
-library(jtools) #for transformaing model summaries
-library(ROCR)
+library(ggpubr)
 ```
 
 # CR/Toxicity ~ abx + center
@@ -86,8 +82,7 @@ c('m','p') %>%
            post_yes = post_tox %>% pluck(x) %>% pluck(2)
           )  %>% gather() %>% 
       gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
-      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
-      facet_grid(key ~ .)})
+      scale_x_continuous(breaks = seq(0, 1, 0.1)) })
 
 # to find out the mean for MSK
 df <- tibble(
@@ -136,8 +131,7 @@ c('m','p') %>%
            post_yes = post_cr %>% pluck(x) %>% pluck(2)
           )  %>% gather() %>% 
       gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
-      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
-      facet_grid(key ~ .)})
+      scale_x_continuous(breaks = seq(0, 1, 0.1))})
 
 df <- tibble(
            post_no = post_cr %>% pluck('m') %>% pluck(1),
