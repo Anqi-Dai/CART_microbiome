@@ -147,7 +147,9 @@ c('m','p') %>%
            post_low = post_tox %>% pluck(x) %>% pluck(1),
            post_high = post_tox %>% pluck(x) %>% pluck(2)
           )  %>% gather() %>% 
-      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
+      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',
+                  xlab = 'Predicted probability of toxicity', ylab = 'Probability density',
+                  title = str_glue('{x}')) +
       scale_x_continuous(breaks = seq(0, 1, 0.1)) })
 ```
 
@@ -235,9 +237,8 @@ post_cr <- list(m = 1, p = 2) %>%
       }) 
     return(cols)
   }) 
-```
 
-```{r}
+
 # plot the histogram of the probs corresponding to low and high diversity
 # msk
 tibble(
@@ -254,7 +255,9 @@ c('m','p') %>%
            post_low = post_cr %>% pluck(x) %>% pluck(1),
            post_high = post_cr %>% pluck(x) %>% pluck(2)
           )  %>% gather() %>% 
-      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',title = str_glue('{x}')) +
+      gghistogram(x = 'value',bins = 30, fill = 'key', palette = 'nejm', color = 'white',
+                  xlab = 'Predicted probability of CR d100', ylab = 'Probability density',
+                  title = str_glue('{x}')) +
       scale_x_continuous(breaks = seq(0, 1, 0.1)) })
 ```
 
