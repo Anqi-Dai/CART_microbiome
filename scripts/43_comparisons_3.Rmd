@@ -14,9 +14,18 @@ library(tidyverse)
 SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN 
 
 ```{r}
-pheno <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>% 
+cur <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>% 
   select(fid, center, cr_d100, toxicity, icans, crs) %>% 
-  filter(center != 'I') %>% # remove the Italy ones
+  filter(center != 'I') %>% # manually update the label for the "not_assessed"
+  mutate(cr_d100 = case_when(
+    fid == '2460A' ~ 'no',
+    fid == '2293A' ~ 'no',
+    fid == '2563A' ~ 'no',
+    TRUE ~ cr_d100
+  ))
+
+
+pheno <- cur %>% 
   gather('pheno', 'value', cr_d100:crs) 
 
 sub_phenos <- pheno %>% 

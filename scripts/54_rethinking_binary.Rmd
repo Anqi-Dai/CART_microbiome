@@ -31,7 +31,13 @@ meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') %>%
          loca = if_else(center == 'M', 1, 2)) %>%  # MSK 1 ; Upenn 2
   mutate(center = factor(center),
          toxicity = factor(toxicity, levels = c('no','yes')),
-         cr_d100 = factor(cr_d100, levels = c('no','yes')))
+         cr_d100 = factor(cr_d100, levels = c('no','yes'))) %>%
+  # have a 2 cutpoint for the CRS
+  mutate(crs3 = case_when(
+    crsgrade == 0 ~ 1,
+    crsgrade == 1 ~ 2,
+    crsgrade >= 2 ~ 3
+  ))
 
 
 meta %>% write_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')
@@ -47,12 +53,15 @@ table(meta$center)
 table(meta$toxicity, meta$center)
 table(meta$cr_d100, meta$center)   
 range(meta$logdiv_s)
+table(meta$crs3)
+table(meta$crsgrade, meta$center) 
 ```
 
 ```{r}
 set.seed(123)
 dat_list <- list(
     tox = meta$tox,
+    crs3 = meta$crs3,
     cr100 = meta$cr100,
     location = meta$loca,
     logdiv_s = meta$logdiv_s
@@ -71,6 +80,20 @@ mtox <- ulam(
 plot(precis(mtox, depth = 2, prob = 0.95) ) 
 # there is baseline difference between penn and Msk and MSK has higher tox rage in general.
 # it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
+```
+
+```{r}
+# another model with the crs grade 0,1,>=2 
+mcrs3 <- ulam(
+    alist(
+        crs3 ~ dordlogit( phi , cutpoints ),
+        phi <- b*logdiv_s + a[location] ,
+        b ~ dnorm( 0 , 1),  
+        a[location] ~ dnorm( 0 , 0.5 ),
+        cutpoints ~ dnorm( 0 , 1.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+plot(precis(mcrs3, depth = 2, prob = 0.95) ) 
+# the cutpoints are not of much interet, this suggests that the diversity really isn't having a correlation?
 ```
 
 ### Prior
@@ -150,13 +173,13 @@ c('m','p') %>%
 
 ```{r}
 # the raw proportion of yes toxicity in each place
-rawtox <- meta  %>% 
-  count(center, toxicity) %>% 
-  left_join(meta %>% 
-              count(center, name = 'total'), by = 'center') %>% 
-  group_by(center, toxicity) %>% 
-  summarise(frac = round(n/total, 2)) %>% 
-  filter(toxicity == 'yes')
+# rawtox <- meta  %>% 
+#   count(center, toxicity) %>% 
+#   left_join(meta %>% 
+#               count(center, name = 'total'), by = 'center') %>% 
+#   group_by(center, toxicity) %>% 
+#   summarise(frac = round(n/total, 2)) %>% 
+#   filter(toxicity == 'yes')
   
 
 ```
@@ -287,5 +310,8 @@ bind_rows(
 ) %>% 
   gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white', add = 'mean', xlab = 'Predicted probability of CR d100', ylab = 'Probability density',
               title = 'Predicted probability of CR d100 between the pt with highest div and the pt with lowest') 
+
+mean(pl)
+mean(ph)
 ```
 
