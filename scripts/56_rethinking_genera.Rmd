@@ -81,9 +81,8 @@ bh <- meta %>%
   arrange(-Bacteroides) %>% 
   slice(1) %>% 
   select(Akkermansia:Ruminococcus)
-```
 
-```{r}
+
 pl <- inv_logit( post$ba * (-1.612806	) + post$bb * (-5.69897		) + post$be * (-5.69897	) +  post$bf * (-5.69897		) + post$br * (-0.5244935) + post$a[, 1] ) 
 
 ph <- inv_logit( post$ba * (-2.286752	) + post$bb * (-0.4575058) + post$be * (-1.745601	) +  post$bf * (-5.69897) + post$br * (-4.050354) + post$a[, 1] )
@@ -99,11 +98,10 @@ bind_rows(
     grp = 'high'
   )
 ) %>% 
-  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK')
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK',
+              xlab = 'Predicted probability of toxicity', ylab = 'Probability density')
   
 ```
-
-
 
 ## CR
 
@@ -146,18 +144,86 @@ pl <- inv_logit( post$ba * (-3.517128) + post$bb * (-2.447201	) + post$be * (-2.
 
 ph <- inv_logit( post$ba * (-1.845325	) + post$bb * (-3.052386) + post$be * (-5.69897) +  post$bf * (-5.69897) + post$br * (-0.373353) + post$a[, 1] )
 
-
 bind_rows(
-  tibble(
-    value = pl,
-    grp = 'low'
-  ),
-  tibble( 
-    value = ph,
-    grp = 'high'
-  )
+  tibble(value = pl,grp = 'low'),
+  tibble( value = ph,grp = 'high')
 ) %>% 
-  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK')
-   
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK',
+              xlab = 'Predicted probability of CR d100', ylab = 'Probability density')
+    
+```
+
+```{r}
+# ruminococcus relab quantile
+meta_ <- meta %>% 
+  select(Akkermansia:Ruminococcus)
+
+# the post coeffs in df format
+postdf <- bind_cols(ba = post$ba, bb = post$bb, be = post$be, bf = post$bf, br = post$br, am = post$a[,1])
+
+# to responde to Sean's comments to not use max and min "extreme"patient data
+# use the 90% and 10% quantile patient data
+# Jonas: how do you know that the patient falling onto the 90%tile is not “exceptional” and therefore an “outlier” in another feature that your model includes, besides ruminococcus, he suggests to sample in that 0-10% quantile range patient data for example
+# It is 100 jointly sampled coefficients multiplied with the composition of bacteria in the current patient
+N <- 100
+# for the top and bottom quantile range of ruminococcus relab
+ru_top <- meta_ %>% 
+  filter(Ruminococcus >= quantile(meta$Ruminococcus, 0.9))
+ru_bot <- meta_ %>% 
+  filter(Ruminococcus <= quantile(meta$Ruminococcus, 0.1))
+
+# sample in the top and bot patients 100 times
+ru_top_samp <- ru_top %>% 
+    sample_n(size = N, replace = T)
+ru_bot_samp <- ru_bot %>% 
+    sample_n(size = N, replace = T)
+
+# a function for every patient data generate 100 post prob of CR (sampling from the post 100 times)
+
+per_pt_sample_post_prob <- function(lga_, lgb_, lge_, lgf_ , lgr_){
+  # the input is the log relab of the 5 genera for that patient
+  post_samp <- postdf %>% 
+    sample_n(size = N, replace = F)
+  
+  ret = pmap(post_samp, function(ba, bb, be, bf, br, am) {
+    inv_logit( ba * lga_ + bb * lgb_ + be * lge_ +  bf * lgf_ + br * lgr_ + am ) 
+  }) %>% 
+    set_names(seq(1, N)) %>% 
+    bind_rows() %>% 
+    gather()
+  return(ret)
+}
+
+# for the top quantile patients 
+res_top <- pmap(ru_top_samp, function(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus){
+  per_pt_sample_post_prob(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus)
+}) %>% 
+  set_names(paste('P', seq(1, N), sep = '')) %>% 
+  bind_rows(.id = 'ptsamp')
+
+# for the bottom quantile patients
+res_bot <- pmap(ru_bot_samp, function(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus){
+  per_pt_sample_post_prob(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus)
+}) %>% 
+  set_names(paste('P', seq(1, N), sep = '')) %>% 
+  bind_rows(.id = 'ptsamp')
+```
+
+```{r}
+# plotting and visualizing
+res_top %>% 
+  gghistogram(x = 'value', fill = 'ptsamp', add_density = T,
+              title = '100 sampled patients that had top 10% Ruminococcus relab',
+              xlab = 'Probability of having CR d100', ylab = 'Probability density') +
+  theme(legend.position = 'none')
+```
+
+
+```{r}
+res_bot %>% 
+  gghistogram(x = 'value', fill = 'ptsamp', add_density = T,
+              title = '100 sampled patients that had bottom 10% Ruminococcus relab',
+              xlab = 'Probability of having CR d100', ylab = 'Probability density') +
+  theme(legend.position = 'none')
 ```
 
