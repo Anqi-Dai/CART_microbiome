@@ -13,7 +13,8 @@ library(tidyverse)
 
 ```{r}
 # sort out the genera counts table and also do filtering (need to have all taxa levels)
-meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') %>% 
+  filter(center == 'M')
 library(vdbR)
 connect_database('~/dbConfig.txt')
 get_table_from_database('asv_annotation_blast_ag')
