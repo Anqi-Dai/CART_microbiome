@@ -62,6 +62,7 @@ gtox <- ulam(
         br ~ dnorm( 0 , 1),
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+precis(gtox, prob = 0.95)   
 plot(precis(gtox, depth = 2, prob = 0.95) )  
 # indicative of the Bacteroides link with toxicity  
 ```
@@ -98,9 +99,15 @@ bind_rows(
     grp = 'high'
   )
 ) %>% 
-  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK',
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',add = 'mean',title = 'MSK',
               xlab = 'Predicted probability of toxicity', ylab = 'Probability density')
   
+bind_rows(
+  tibble(value = pl,grp = 'low'),
+  tibble( value = ph,grp = 'high')
+)   %>% 
+  group_by(grp) %>% 
+  summarise(m = mean(value))
 ```
 
 ## CR
@@ -117,7 +124,7 @@ gcr <- ulam(
         br ~ dnorm( 0 , 1),
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
-
+precis(gcr, prob = 0.95) 
 plot(precis(gcr, depth = 2, prob = 0.95) ) 
 # I think the Ruminococcus still holds for the CR
 ```
@@ -148,9 +155,16 @@ bind_rows(
   tibble(value = pl,grp = 'low'),
   tibble( value = ph,grp = 'high')
 ) %>% 
-  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK',
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK', add = 'mean',
               xlab = 'Predicted probability of CR d100', ylab = 'Probability density')
-    
+
+
+bind_rows(
+  tibble(value = pl,grp = 'low'),
+  tibble( value = ph,grp = 'high')
+)   %>% 
+  group_by(grp) %>% 
+  summarise(m = mean(value))
 ```
 
 ```{r}
@@ -195,35 +209,68 @@ per_pt_sample_post_prob <- function(lga_, lgb_, lge_, lgf_ , lgr_){
 }
 
 # for the top quantile patients 
-res_top <- pmap(ru_top_samp, function(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus){
+res_top <- pmap(ru_top, function(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus){
   per_pt_sample_post_prob(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus)
 }) %>% 
-  set_names(paste('P', seq(1, N), sep = '')) %>% 
-  bind_rows(.id = 'ptsamp')
+  set_names(paste('P', seq(1, nrow(ru_top)), sep = '')) %>% 
+  bind_rows(.id = 'pt')
 
 # for the bottom quantile patients
-res_bot <- pmap(ru_bot_samp, function(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus){
+res_bot <- pmap(ru_bot, function(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus){
   per_pt_sample_post_prob(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus)
 }) %>% 
-  set_names(paste('P', seq(1, N), sep = '')) %>% 
-  bind_rows(.id = 'ptsamp')
+  set_names(paste('P', seq(1, nrow(ru_bot)), sep = '')) %>% 
+  bind_rows(.id = 'pt')
 ```
 
 ```{r}
 # plotting and visualizing
+# visualizing each patient
 res_top %>% 
-  gghistogram(x = 'value', fill = 'ptsamp', add_density = T,
+  gghistogram(x = 'value', fill = 'pt', add_density = T,
               title = '100 sampled patients that had top 10% Ruminococcus relab',
               xlab = 'Probability of having CR d100', ylab = 'Probability density') +
   theme(legend.position = 'none')
+
+ 
+# averaging over all the patients
+res_top %>% 
+  gghistogram(x = 'value', 
+              #add_density = T,
+              title = '100 sampled patients that had top 10% Ruminococcus relab',
+              xlab = 'Probability of having CR d100', ylab = 'Probability density') +
+  theme(legend.position = 'none')
+
+mean(res_top$value)
 ```
 
 
 ```{r}
+# visualizing each patient
 res_bot %>% 
-  gghistogram(x = 'value', fill = 'ptsamp', add_density = T,
+  gghistogram(x = 'value', fill = 'pt', add_density = T,
               title = '100 sampled patients that had bottom 10% Ruminococcus relab',
               xlab = 'Probability of having CR d100', ylab = 'Probability density') +
   theme(legend.position = 'none')
+
+# averaging over all the patients
+res_bot %>% 
+  gghistogram(x = 'value', 
+              #add_density = T,
+              title = '100 sampled patients that had bottom 10% Ruminococcus relab',
+              xlab = 'Probability of having CR d100', ylab = 'Probability density') +
+  theme(legend.position = 'none')
+
+mean(res_bot$value)
 ```
 
+```{r}
+# plot them together in one 
+bind_rows(
+  res_top %>% mutate(grp = 'top'),
+  res_bot %>% mutate(grp = 'bot')
+) %>% 
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white', add = 'mean',
+                  xlab = 'Predicted probability of CR d100', ylab = 'Probability density')
+
+```

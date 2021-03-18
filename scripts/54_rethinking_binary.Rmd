@@ -76,7 +76,7 @@ mtox <- ulam(
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
 
 # the std of b is 2, since we assume the microbiome could have big impact on immunology (based on our previous understanding and knowledge )
-#precis(mtox, depth = 2)
+precis(mtox,  prob = 0.95)
 plot(precis(mtox, depth = 2, prob = 0.95) ) 
 # there is baseline difference between penn and Msk and MSK has higher tox rage in general.
 # it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
@@ -198,7 +198,7 @@ mcr <- ulam(
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
 
-#precis(mcr, depth = 2)
+precis(mcr,  prob = 0.95)
 plot(precis(mcr, depth = 2, prob = 0.95) ) 
 # there isn't much difference in baseline level between the centers
 # diversity seems to be positively associating with CR when the prior is too large sd

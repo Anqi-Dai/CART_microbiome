@@ -54,7 +54,7 @@ atox <- ulam(
         b ~ dnorm( 0 , 1.5), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
-#precis(atox, depth = 2)
+precis(atox,prob = 0.95)
 plot(precis(atox, depth = 2 ,prob = 0.95) ) 
 # seems anaerobe abx is positively linked with toxicity 
 ```
@@ -103,7 +103,7 @@ acr <- ulam(
         b ~ dnorm( 0 , 1.5), 
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
-#precis(acr, depth = 2)
+precis(acr,  prob = 0.95)
 plot(precis(acr, depth = 2, prob = 0.95) ) 
 # nothing interesting 
 ```

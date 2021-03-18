@@ -1,0 +1,74 @@
+---
+title: "16s lefse"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# sort out the genera counts table and also do filtering (need to have all taxa levels)
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database('asv_annotation_blast_ag')
+get_table_from_database('asv_counts_ag')
+cts <- get_counts_subset(meta$sampleid)
+
+cts_ <- cts %>% 
+  select(asv_key, sampleid, count) %>% 
+  spread(key = 'sampleid', value = 'count', fill = 0) %>% 
+  arrange(asv_key) 
+
+annot <- asv_annotation_blast_ag %>% 
+  filter(asv_key %in% cts_$asv_key) %>% 
+  mutate(ordr =  if_else(ordr == '', str_glue('of_class_{class}'), ordr),
+         family =  if_else(family == '', str_glue('of_order_{ordr}'), family),
+         genus =  if_else(genus == '', str_glue('of_family_{family}'), genus),
+         species =  if_else(species == '', str_glue('of_genus_{genus}'), species)) %>% 
+  mutate(taxa_genus = str_glue('k__{kingdom}|p__{phylum}|c__{class}|o__{ordr}|f__{family}|g__{genus}'))
+
+cts_genus_all <- cts_ %>% 
+  full_join(annot %>%  select(asv_key, taxa_genus), by  = 'asv_key') %>% 
+  select(-asv_key) %>% 
+  gather(key = 'sampleid', value = 'count', names(.)[1]:names(.)[ncol(.) - 1]) %>% 
+  group_by(sampleid, taxa_genus) %>% 
+  summarise(cnt = sum(count)) %>% 
+  # get the total count from the db to calculate the relab
+  left_join(cts %>% distinct(sampleid,count_total ), by = 'sampleid') %>% 
+  mutate(relab = cnt/count_total) %>% 
+  select(sampleid, taxa_genus, relab)
+
+# the genera to keep
+keepg <- cts_genus_all %>% 
+  filter(relab > 0.0001) %>%
+  ungroup() %>% 
+  count(taxa_genus) %>% 
+  filter(n > floor(nrow(meta) * 0.1)) %>% 
+  filter(!str_detect(taxa_genus, 'NA$')) %>% 
+  pull(taxa_genus)
+
+cts_genus_fil <- cts_genus_all %>% 
+  filter(taxa_genus %in% keepg) %>% 
+  spread('sampleid', 'relab')
+ 
+```
+
+```{r}
+pheno <- meta %>% 
+  select(cr_d100:crs, )
+  gather('pheno', 'value', cr_d100:crs) 
+
+all_sub_pheno <- pheno %>% 
+  split(., list(.$pheno)) %>% 
+  purrr::imap(~ filter(.data = ., value != 'not_assessed'))
+
+all_sub_pheno %>% 
+  imap(function(.x, .y){
+    select(.data = .x, value) %>% 
+      t() %>% 
+      write.table(str_glue('../data/shotgun_output/humann3/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+  })
+```
+
