@@ -8,12 +8,15 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(tidyverse)
+```
+
+```{r}
 # sort out the genera counts table and also do filtering (need to have all taxa levels)
 meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
 library(vdbR)
 connect_database('~/dbConfig.txt')
 get_table_from_database('asv_annotation_blast_ag')
-get_table_from_database('asv_counts_ag')
 cts <- get_counts_subset(meta$sampleid)
 
 cts_ <- cts %>% 
@@ -56,19 +59,48 @@ cts_genus_fil <- cts_genus_all %>%
 ```
 
 ```{r}
+# the pheno label for the samples
 pheno <- meta %>% 
-  select(cr_d100:crs, )
-  gather('pheno', 'value', cr_d100:crs) 
+  select(center, cr_d100:crs, icans, sampleid) %>% 
+  gather('pheno', 'value', cr_d100:icans) 
 
 all_sub_pheno <- pheno %>% 
   split(., list(.$pheno)) %>% 
   purrr::imap(~ filter(.data = ., value != 'not_assessed'))
 
-all_sub_pheno %>% 
+tpheno <- all_sub_pheno %>% 
   imap(function(.x, .y){
-    select(.data = .x, value) %>% 
-      t() %>% 
-      write.table(str_glue('../data/shotgun_output/humann3/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+    select(.data = .x, value, center) %>% 
+      t() %>% write.table(str_glue('../data/amplicon/lefse/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
   })
+
+tcts <- all_sub_pheno %>% 
+  map(~ pull(.data = ., sampleid) ) %>% 
+  imap(~ cts_genus_fil %>% select(taxa_genus, matches(.x)) %>%  write_tsv(str_glue('../data/amplicon/lefse/{.y}_tcts.tsv'))) 
 ```
 
+cat pull_toxicity.txt toxicity_tcts.tsv > pull_toxicity_tcts.tsv
+cat pull_cr_d100.txt cr_d100_tcts.tsv > pull_cr_d100_tcts.tsv 
+cat pull_crs.txt crs_tcts.tsv > pull_crs_tcts.tsv
+cat pull_icans.txt icans_tcts.tsv > pull_icans_tcts.tsv
+
+```{r}
+fns <- list.files('../data/amplicon/lefse/', pattern = 'pull.*_tcts.tsv$')
+
+cmds <- tibble(
+  fns = fns
+) %>% 
+  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -s 2  -u 3  ')) %>% 
+  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
+  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300 --title {fns}')) %>% 
+  mutate(clado_cmd = str_glue('plot_cladogram.py {fns}.res {fns}_clado.pdf  --label_font_size 4 --dpi 300 --format pdf --title {fns}')) %>% 
+  select(-fns) %>% 
+  gather() %>% 
+  select(value) %>% 
+  write_csv('../data/amplicon/lefse/lefse_run_cmd_taxa.sh', col_names = F)
+ 
+# No differentially abundant features found in the 4
+# also this is the case when using center as subclass 
+```
+
+  
