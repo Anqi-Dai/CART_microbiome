@@ -114,3 +114,19 @@ combined_join %>%
   write_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Angel_amplicon/16s_data_pheno_comprehensive.csv')
 ```
 
+```{r}
+# check something about abx
+m <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/antibiotics/sean_table/abx_table_msk_sean.xlsx') %>% 
+  select(pt_id, anaerobe_targeting)
+meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv') %>% 
+  left_join(m) %>% 
+  mutate(anaerobe_targeting = if_else(is.na(anaerobe_targeting), 'no', anaerobe_targeting))
+
+m <- meta %>% 
+  filter(center == 'M')
+
+m %>% 
+  count(anaerobe_targeting, cr_d100) %>% 
+  ggbarplot(x = 'anaerobe_targeting', y= 'n', color = 'cr_d100', fill = 'cr_d100')
+```
+

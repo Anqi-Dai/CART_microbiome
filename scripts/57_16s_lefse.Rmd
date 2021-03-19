@@ -9,21 +9,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(ggpubr)
 ```
-
+ 
 ```{r}
 # sort out the genera counts table and also do filtering (need to have all taxa levels)
-meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') %>% 
-  filter(center == 'M')
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+
 library(vdbR)
 connect_database('~/dbConfig.txt')
 get_table_from_database('asv_annotation_blast_ag')
 cts <- get_counts_subset(meta$sampleid)
 
 cts_ <- cts %>% 
-  select(asv_key, sampleid, count) %>% 
-  spread(key = 'sampleid', value = 'count', fill = 0) %>% 
-  arrange(asv_key) 
+  select(asv_key, sampleid, count_relative) %>% 
+  spread(key = 'sampleid', value = 'count_relative', fill = 0) 
 
 annot <- asv_annotation_blast_ag %>% 
   filter(asv_key %in% cts_$asv_key) %>% 
@@ -31,32 +31,52 @@ annot <- asv_annotation_blast_ag %>%
          family =  if_else(family == '', str_glue('of_order_{ordr}'), family),
          genus =  if_else(genus == '', str_glue('of_family_{family}'), genus),
          species =  if_else(species == '', str_glue('of_genus_{genus}'), species)) %>% 
-  mutate(taxa_genus = str_glue('k__{kingdom}|p__{phylum}|c__{class}|o__{ordr}|f__{family}|g__{genus}'))
+  mutate(taxa_asv = str_glue('k__{kingdom}|p__{phylum}|c__{class}|o__{ordr}|f__{family}|g__{genus}|s__{species}|a__{asv_key}'))
 
-cts_genus_all <- cts_ %>% 
-  full_join(annot %>%  select(asv_key, taxa_genus), by  = 'asv_key') %>% 
-  select(-asv_key) %>% 
-  gather(key = 'sampleid', value = 'count', names(.)[1]:names(.)[ncol(.) - 1]) %>% 
-  group_by(sampleid, taxa_genus) %>% 
-  summarise(cnt = sum(count)) %>% 
-  # get the total count from the db to calculate the relab
-  left_join(cts %>% distinct(sampleid,count_total ), by = 'sampleid') %>% 
-  mutate(relab = cnt/count_total) %>% 
-  select(sampleid, taxa_genus, relab)
+cts_all <- cts_ %>% 
+  full_join(annot %>%  select(asv_key, taxa_asv), by  = 'asv_key') %>% 
+  select(-asv_key)  %>% 
+  gather('sampleid', 'relab', names(.)[1]:names(.)[ncol(.)-1])
 
-# the genera to keep
-keepg <- cts_genus_all %>% 
-  filter(relab > 0.0001) %>%
+
+# the asv to keep
+keepg <- cts_all %>% 
+  filter(relab > 0) %>%
   ungroup() %>% 
-  count(taxa_genus) %>% 
+  count(taxa_asv) %>% 
   filter(n > floor(nrow(meta) * 0.1)) %>% 
-  filter(!str_detect(taxa_genus, 'NA$')) %>% 
-  pull(taxa_genus)
+  pull(taxa_asv)
 
-cts_genus_fil <- cts_genus_all %>% 
-  filter(taxa_genus %in% keepg) %>% 
+cts_fil <- cts_all %>% 
+  filter(taxa_asv %in% keepg) %>% 
   spread('sampleid', 'relab')
- 
+```
+
+
+```{r}
+dat <- genera %>% 
+  filter(genus == 'Ruminococcus') %>% 
+  gather('sampleid', 'relab', names(.)[2]:names(.)[ncol(.)]) %>% 
+  full_join(meta) %>% 
+  mutate(logrelab =  log10(relab + 2e-6)) 
+
+yes <- dat %>% 
+  filter(cr_d100 == 'yes')
+no <- dat %>% 
+  filter(cr_d100 == 'no')
+
+
+dat %>% 
+  #filter(center == 'M') %>% 
+  mutate(logrelab =  log10(relab + 2e-6)) %>% 
+  ggboxplot(x = 'cr_d100', y = 'logrelab', add = 'jitter') +
+stat_compare_means(comparisons= list(c('yes', 'no')),
+										label= "p.signif",
+										method= 'wilcox.test',
+										correct=FALSE)
+
+t.test(yes$logrelab, no$logrelab)
+
 ```
 
 ```{r}
@@ -71,27 +91,27 @@ all_sub_pheno <- pheno %>%
 
 tpheno <- all_sub_pheno %>% 
   imap(function(.x, .y){
-    select(.data = .x, value, center) %>% 
+    select(.data = .x, value) %>% 
       t() %>% write.table(str_glue('../data/amplicon/lefse/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
   })
 
 tcts <- all_sub_pheno %>% 
   map(~ pull(.data = ., sampleid) ) %>% 
-  imap(~ cts_genus_fil %>% select(taxa_genus, matches(.x)) %>%  write_tsv(str_glue('../data/amplicon/lefse/{.y}_tcts.tsv'))) 
+  imap(~ cts_fil %>% select(taxa_asv, matches(.x)) %>%  write_tsv(str_glue('../data/amplicon/lefse/{.y}_asv_tcts.tsv'))) 
 ```
 
-cat pull_toxicity.txt toxicity_tcts.tsv > pull_toxicity_tcts.tsv
-cat pull_cr_d100.txt cr_d100_tcts.tsv > pull_cr_d100_tcts.tsv 
-cat pull_crs.txt crs_tcts.tsv > pull_crs_tcts.tsv
-cat pull_icans.txt icans_tcts.tsv > pull_icans_tcts.tsv
+cat pull_toxicity.txt toxicity_asv_tcts.tsv > pull_toxicity_asv_tcts.tsv
+cat pull_cr_d100.txt cr_d100_asv_tcts.tsv > pull_cr_d100_asv_tcts.tsv 
+cat pull_crs.txt crs_asv_tcts.tsv > pull_crs_asv_tcts.tsv
+cat pull_icans.txt icans_asv_tcts.tsv > pull_icans_asv_tcts.tsv
 
 ```{r}
-fns <- list.files('../data/amplicon/lefse/', pattern = 'pull.*_tcts.tsv$')
+fns <- list.files('../data/amplicon/lefse/', pattern = 'pull.*_asv_tcts.tsv$')
 
 cmds <- tibble(
   fns = fns
 ) %>% 
-  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -s 2  -u 3  ')) %>% 
+  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1  -u 2 -o 1000000   ')) %>% 
   mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
   mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300 --title {fns}')) %>% 
   mutate(clado_cmd = str_glue('plot_cladogram.py {fns}.res {fns}_clado.pdf  --label_font_size 4 --dpi 300 --format pdf --title {fns}')) %>% 

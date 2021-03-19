@@ -1,0 +1,38 @@
+---
+title: "lefse and the picked targets"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+```
+
+```{r}
+all_pw <- read_tsv('~/pipeline/scripts/shotgun_pipeline/data/metacyc_pathway_name_and_ID.tsv')
+pick <- read_csv('../data/shotgun_output/metacyc_pathway_name_and_ID_MSv2.csv') %>% 
+  select(Metabolite:cluster)
+
+lefse <- read_csv('../data/shotgun_output/pull_pathway_lefse.csv') %>% 
+  mutate(PWID = str_extract(feature, '^.+_PWY|^PWY.*_\\d{3,4}'))  %>% 
+  mutate(
+    PWID = case_when(
+      str_detect(feature, 'NAD_BIOSYNTHESIS_II') ~ 'NAD_BIOSYNTHESIS_II',
+      str_detect(feature, 'ARG_POLYAMINE_SYN') ~ 'ARG+POLYAMINE_SYN',
+      str_detect(feature, 'PWY5F9') ~ 'PWY5F9',
+      TRUE ~ PWID
+    )
+  ) %>% 
+  mutate(PWID = str_replace_all(PWID, '_', '-'))
+
+res <- lefse %>% 
+  left_join(pick)
+
+res %>% 
+  write_csv('../data/shotgun_output/pull_lefse_results_pathway_join_with_picked_ones.csv')
+```
+

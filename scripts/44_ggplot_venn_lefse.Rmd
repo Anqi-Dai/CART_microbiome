@@ -31,7 +31,12 @@ res_all <- res %>%
          res = str_replace(res, '_lefse.+$',''))  %>% 
   rename(grp = res) %>% 
   mutate(grp = str_replace(grp, 'pull_','pull\\.')) %>% 
-  separate(grp, into = c('cohort','outcome'), sep = '\\.')
+  separate(grp, into = c('cohort','outcome'), sep = '\\.') 
+
+res_all %>% 
+  ungroup() %>% 
+  filter(cohort == 'pull') %>% 
+  write_csv('../data/shotgun_output/pull_pathway_lefse.csv')
 
 res_all_list <- res_all %>% 
   split(.$tbl) %>% 
