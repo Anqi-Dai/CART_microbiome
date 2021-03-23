@@ -1,0 +1,31 @@
+---
+title: "Detailed look at the 16s lefse results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggpubr)
+```
+
+```{r}
+res <- list.files('../data/amplicon/lefse/', pattern = 'asv_tcts.tsv.res$', full.names = T)
+
+res_all <- res %>% 
+  set_names(res) %>% 
+  map(~ read_tsv(., col_names = c('feature','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  keep(~ nrow(.) > 0) %>% 
+  bind_rows(.id = 'res') %>% 
+  mutate(res = str_replace(res, '^.+//',''),
+         res = str_replace(res, '_asv.+$',''))  %>% 
+  rename(grp = res)
+res_all$feature
+
+
+```
+

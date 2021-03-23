@@ -75,6 +75,8 @@ dat <- bind_rows(
   color_group %>% 
     pluck('FALSE')
 )   
+
+dat %>%  write_csv('../data/the_data_to_make_panel_B.csv')
 ```
 
 

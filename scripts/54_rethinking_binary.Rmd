@@ -37,7 +37,8 @@ meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') %>%
     crsgrade == 0 ~ 1,
     crsgrade == 1 ~ 2,
     crsgrade >= 2 ~ 3
-  ))
+  )) 
+
 
 
 meta %>% write_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')
@@ -80,6 +81,7 @@ precis(mtox,  prob = 0.95)
 plot(precis(mtox, depth = 2, prob = 0.95) ) 
 # there is baseline difference between penn and Msk and MSK has higher tox rage in general.
 # it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
+div_value <- c(-1, 1)
 ```
 
 ```{r}
@@ -151,6 +153,36 @@ c('m','p') %>%
                   xlab = 'Predicted probability of toxicity', ylab = 'Probability density',
                   title = str_glue('{x}')) +
       scale_x_continuous(breaks = seq(0, 1, 0.1)) })
+```
+
+
+```{r}
+# combine M and P since they look very similar and also save some space
+low_M <- post_tox %>% pluck('m') %>% pluck(1)
+low_P <- post_tox %>% pluck('p') %>% pluck(1)
+high_M <- post_tox %>% pluck('m') %>% pluck(2)
+high_P <- post_tox %>% pluck('p') %>% pluck(2)
+low_all <- bind_rows(
+  tibble(value = low_M),
+  tibble(value = low_P)
+) %>% mutate(grp = 'low')
+
+high_all <- bind_rows(
+  tibble(value = high_M),
+  tibble(value = high_P)
+)%>% mutate(grp = 'high')
+
+tox_all <- bind_rows(
+  low_all,
+  high_all
+)
+
+tox_all  %>% 
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',
+                  xlab = 'Predicted probability of toxicity', ylab = 'Probability density',
+                  title = '') +
+      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  ggsave('../figs/bayesican_tox_combined.pdf', width = 6, height = 4)
 ```
 
 

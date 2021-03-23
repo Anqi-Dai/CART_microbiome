@@ -32,7 +32,7 @@ m <- readxl::read_excel('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/ant
 meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv') %>% 
   left_join(m) %>% 
   mutate(anaerobe_targeting = if_else(is.na(anaerobe_targeting), 'no', anaerobe_targeting)) %>% 
-  mutate(anaerobe = if_else(anaerobe_targeting == 'no', 0, 1))
+  mutate(anaerobe = if_else(anaerobe_targeting == 'no', 0, 1)) 
 
 set.seed(123)
 dat_list <- list(

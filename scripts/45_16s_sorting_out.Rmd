@@ -127,6 +127,6 @@ m <- meta %>%
 
 m %>% 
   count(anaerobe_targeting, cr_d100) %>% 
-  ggbarplot(x = 'anaerobe_targeting', y= 'n', color = 'cr_d100', fill = 'cr_d100')
+  ggbarplot(x = 'anaerobe_targeting', y= 'n', color = 'cr_d100', fill = 'cr_d100', label = TRUE)
 ```
 
