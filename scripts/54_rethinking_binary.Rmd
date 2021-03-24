@@ -294,6 +294,31 @@ c('m','p') %>%
 ```
 
 ```{r}
+# combine M and P
+low_all <- tibble(
+  value = c(post_cr %>% pluck('m') %>% pluck(1), post_cr %>% pluck('p') %>% pluck(1))
+) %>% mutate(grp = 'low')
+
+high_all <- tibble(
+  value = c(post_cr %>% pluck('m') %>% pluck(2), post_cr %>% pluck('p') %>% pluck(2))
+) %>% mutate(grp = 'high')
+
+cr_all <- bind_rows(
+  low_all,
+  high_all
+)
+
+
+cr_all  %>% 
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',
+                  xlab = 'Predicted probability of CR d100', ylab = 'Probability density',
+                  title = '') +
+      scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  ggsave('../figs/bayesican_cr_combined.pdf', width = 6, height = 4)
+```
+
+
+```{r}
 # the difference of the probability 
 post_cr <- list(m = 1, p = 2) %>% 
   map(function(center_){
