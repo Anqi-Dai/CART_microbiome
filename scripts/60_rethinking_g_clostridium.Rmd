@@ -1,0 +1,80 @@
+---
+title: "replacing bacteroides with Clostridium genus bayesian"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(rethinking)
+library(tidyverse)  
+library(ggpubr)
+```
+
+# CR/Toxicity ~ Akkermansia + Clostridium + Enterococcus + Faecalibacterium + Ruminococcus + center
+
+## Toxicity
+
+```{r}
+# first I need to get the Clostridium genus abundance
+clos <- read_csv('../data/amplicon/stool/counts_genus_combined.csv') %>% 
+  filter(genus == 'Clostridium') %>% 
+  mutate(relablog = log10(relab + 2*10^-6)) %>% 
+  select(sampleid, Clostridium = relablog)
+
+g5 <- read_csv('../data/amplicon/stool/combined_5_genera.csv') %>% 
+  full_join(clos)
+
+g5 %>% 
+  write_csv('../data/amplicon/stool/combined_6_genera.csv')
+
+meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')  %>% 
+  full_join(g5)
+
+set.seed(123)   
+dat_list <- list(
+    tox = meta$tox,
+    cr100 = meta$cr100,
+    location = meta$loca,
+    Akkermansia = meta$Akkermansia,
+    Clostridium = meta$Clostridium,
+    Enterococcus = meta$Enterococcus,
+    Faecalibacterium = meta$Faecalibacterium,
+    Ruminococcus = meta$Ruminococcus
+    ) 
+```
+
+```{r}
+gtox <- ulam(
+    alist(
+        tox ~ dbinom( 1 , p ) ,
+        logit(p) <- ba*Akkermansia + bc*Clostridium + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + a[location] ,
+        ba ~ dnorm( 0 , 1),
+        bc ~ dnorm( 0 , 1),
+        be ~ dnorm( 0 , 1),
+        bf ~ dnorm( 0 , 1),
+        br ~ dnorm( 0 , 1),
+        a[location] ~ dnorm( 0 , 0.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+#precis(gtox, prob = 0.95)   
+plot(precis(gtox, depth = 2, prob = 0.95) )  
+```
+
+```{r}
+gcr <- ulam(
+    alist(
+        cr100 ~ dbinom( 1 , p ) ,
+        logit(p) <- ba*Akkermansia + bc*Clostridium + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + a[location] ,
+        ba ~ dnorm( 0 , 1),
+        bc ~ dnorm( 0 , 1),
+        be ~ dnorm( 0 , 1),
+        bf ~ dnorm( 0 , 1),
+        br ~ dnorm( 0 , 1),
+        a[location] ~ dnorm( 0 , 0.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+precis(gcr, prob = 0.95) 
+plot(precis(gcr, depth = 2, prob = 0.95) ) 
+```
+

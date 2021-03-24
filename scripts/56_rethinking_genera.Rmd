@@ -109,6 +109,9 @@ bind_rows(
   group_by(grp) %>% 
   summarise(m = mean(value))
 ```
+```{r}
+
+```
 
 ## CR
 
