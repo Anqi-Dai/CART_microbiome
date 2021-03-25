@@ -66,6 +66,59 @@ precis(gtox, prob = 0.95)
 plot(precis(gtox, depth = 2, prob = 0.95) )  
 # indicative of the Bacteroides link with toxicity  
 ```
+   
+```{r}
+post <- extract.samples(gtox) 
+meta_ <- meta %>% 
+  select(Akkermansia:Ruminococcus)
+
+# the post coeffs in df format
+postdf <- bind_cols(ba = post$ba, bb = post$bb, be = post$be, bf = post$bf, br = post$br, am = post$a[,1])
+
+N <- 100
+# for the top and bottom quantile range of Bacteroides relab
+ba_top <- meta_ %>% 
+  filter(Bacteroides >= quantile(meta$Bacteroides, 0.9))
+ba_bot <- meta_ %>% 
+  filter(Bacteroides <= quantile(meta$Bacteroides, 0.1))
+
+per_pt_sample_post_prob <- function(lga_, lgb_, lge_, lgf_ , lgr_){
+  # the input is the log relab of the 5 genera for that patient
+  post_samp <- postdf %>% 
+    sample_n(size = N, replace = F)
+  
+  ret = pmap(post_samp, function(ba, bb, be, bf, br, am) {
+    inv_logit( ba * lga_ + bb * lgb_ + be * lge_ +  bf * lgf_ + br * lgr_ + am ) 
+  }) %>% 
+    set_names(seq(1, N)) %>% 
+    bind_rows() %>% 
+    gather()
+  return(ret)
+}
+
+# for the top quantile patients 
+res_top <- pmap(ba_top, function(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus){
+  per_pt_sample_post_prob(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus)
+}) %>% 
+  set_names(paste('P', seq(1, nrow(ba_top)), sep = '')) %>% 
+  bind_rows(.id = 'pt')
+
+# for the bottom quantile patients  
+res_bot <- pmap(ba_bot, function(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus){
+  per_pt_sample_post_prob(Akkermansia, Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus)
+}) %>% 
+  set_names(paste('P', seq(1, nrow(ba_bot)), sep = '')) %>% 
+  bind_rows(.id = 'pt')   
+
+# plot them together in one 
+bind_rows(
+  res_top %>% mutate(grp = 'top'),
+  res_bot %>% mutate(grp = 'bot')
+) %>% 
+  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white', add = 'mean',
+                  xlab = 'Predicted probability of Toxicity', ylab = 'Probability density') +
+  ggsave('../figs/predicted_tox_bacteroides_top_bottom_10.pdf', width = 7, height = 5)
+```
 
 ### posterior check 
 
@@ -109,9 +162,7 @@ bind_rows(
   group_by(grp) %>% 
   summarise(m = mean(value))
 ```
-```{r}
 
-```
 
 ## CR
 
@@ -274,6 +325,7 @@ bind_rows(
   res_bot %>% mutate(grp = 'bot')
 ) %>% 
   gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white', add = 'mean',
-                  xlab = 'Predicted probability of CR d100', ylab = 'Probability density')
+                  xlab = 'Predicted probability of CR d100', ylab = 'Probability density')+
+  ggsave('../figs/predicted_CR_Ruminococcus_top_bottom_10.pdf', width = 7, height = 5)
 
 ```

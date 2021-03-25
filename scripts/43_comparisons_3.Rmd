@@ -180,7 +180,7 @@ cmds <- tibble(
 ) %>% 
   mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2 -o 1000000')) %>% 
   mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
-  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.png  --feature_font_size 4 --width 10 --dpi 300 --title {fns}')) %>% 
+  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.pdf --format pdf --feature_font_size 4 --width 10 --dpi 300 --title {fns}')) %>% 
   mutate(clado_cmd = str_glue('plot_cladogram.py {fns}.res {fns}_clado.pdf  --label_font_size 4 --dpi 300 --format pdf --title {fns}')) %>% 
   select(-fns) %>% 
   gather() %>% 
