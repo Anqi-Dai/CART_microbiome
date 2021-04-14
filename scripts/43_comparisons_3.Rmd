@@ -24,6 +24,8 @@ cur <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>%
     TRUE ~ cr_d100
   ))
 
+cur %>% write_csv('../data/shotgun_pheno/final_comprehensive_UPDATED.csv')
+
 pheno <- cur %>% 
   gather('pheno', 'value', cr_d100:crs) 
 

@@ -54,28 +54,28 @@ cts_fil <- cts_all %>%
 
 
 ```{r}
-dat <- genera %>% 
-  filter(genus == 'Ruminococcus') %>% 
-  gather('sampleid', 'relab', names(.)[2]:names(.)[ncol(.)]) %>% 
-  full_join(meta) %>% 
-  mutate(logrelab =  log10(relab + 2e-6)) 
-
-yes <- dat %>% 
-  filter(cr_d100 == 'yes')
-no <- dat %>% 
-  filter(cr_d100 == 'no')
-
-
-dat %>% 
-  #filter(center == 'M') %>% 
-  mutate(logrelab =  log10(relab + 2e-6)) %>% 
-  ggboxplot(x = 'cr_d100', y = 'logrelab', add = 'jitter') +
-stat_compare_means(comparisons= list(c('yes', 'no')),
-										label= "p.signif",
-										method= 'wilcox.test',
-										correct=FALSE)
-
-t.test(yes$logrelab, no$logrelab)
+# dat <- genera %>% 
+#   filter(genus == 'Ruminococcus') %>% 
+#   gather('sampleid', 'relab', names(.)[2]:names(.)[ncol(.)]) %>% 
+#   full_join(meta) %>% 
+#   mutate(logrelab =  log10(relab + 2e-6)) 
+# 
+# yes <- dat %>% 
+#   filter(cr_d100 == 'yes')
+# no <- dat %>% 
+#   filter(cr_d100 == 'no')
+# 
+# 
+# dat %>% 
+#   #filter(center == 'M') %>% 
+#   mutate(logrelab =  log10(relab + 2e-6)) %>% 
+#   ggboxplot(x = 'cr_d100', y = 'logrelab', add = 'jitter') +
+# stat_compare_means(comparisons= list(c('yes', 'no')),
+# 										label= "p.signif",
+# 										method= 'wilcox.test',
+# 										correct=FALSE)
+# 
+# t.test(yes$logrelab, no$logrelab)
 
 ```
 
@@ -119,7 +119,7 @@ cmds <- tibble(
   gather() %>% 
   select(value) %>% 
   write_csv('../data/amplicon/lefse/lefse_run_cmd_taxa.sh', col_names = F)
- 
+   
 # No differentially abundant features found in the 4
 # also this is the case when using center as subclass 
 ```

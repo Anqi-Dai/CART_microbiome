@@ -28,7 +28,7 @@ genera <- read_csv('../data/amplicon/stool/combined_5_genera.csv')
 
 # do not standardize the log transformed relative abundance 
 meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')  %>% 
-  full_join(genera)
+  inner_join(genera)
 
 # wanna see the range of the 5 genera log 10 relab
 meta %>% select(Akkermansia:Ruminococcus) %>% 
