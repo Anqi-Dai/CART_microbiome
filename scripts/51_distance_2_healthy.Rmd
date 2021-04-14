@@ -93,5 +93,40 @@ centroid_center %>%
             method= 'wilcox.test',
 						correct=FALSE) +
   ggsave('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/Angel_amplicon/distance_to_centroid/centers_compared_to_healthy.pdf')
+
+centroid_center %>% 
+  filter(groups == 'healthy')
+```
+```{r}
+# dominance in healthy volunteers 
+h <- get_counts_subset(healthy$sampleid)
+
+cts <- h %>% 
+  select(asv_key, sampleid, count) %>% 
+  spread(key = 'sampleid', value = 'count', fill = 0) %>% 
+  arrange(asv_key) 
+
+mannot <- asv_annotation_blast_ag %>% 
+  filter(asv_key %in% cts$asv_key) %>% 
+  mutate(ordr =  if_else(ordr == '', str_glue('of_class_{class}'), ordr),
+         family =  if_else(family == '', str_glue('of_order_{ordr}'), family),
+         genus =  if_else(genus == '', str_glue('of_family_{family}'), genus),
+         species =  if_else(species == '', str_glue('of_genus_{genus}'), species)) 
+mcts_all <- cts %>% 
+  full_join(mannot %>%  select(asv_key, genus), by  = 'asv_key') %>% 
+  select(-asv_key) %>% 
+  gather(key = 'sampleid', value = 'count', names(.)[1]:names(.)[ncol(.) - 1]) %>% 
+  group_by(sampleid, genus) %>% 
+  summarise(cnt = sum(count)) %>% 
+  # get the total count from the db to calculate the relab
+  left_join(h %>% distinct(sampleid,count_total ), by = 'sampleid') %>% 
+  mutate(relab = cnt/count_total) %>% 
+  select(sampleid, genus, relab) 
+
+mcts_all %>% 
+  write_csv('../data/amplicon/healthy_volunteer_genus_relab.csv')
+
+h %>% 
+  write_csv('../data/amplicon/healthy_volunteer_asv_relab.csv')
 ```
 

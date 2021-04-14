@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(readxl)
+library(ggpubr)
 ```
 
 This script will be cleaning and organizing the 16s samples 
@@ -89,7 +90,7 @@ p <- u_meta_b %>%
   mutate(time_group = 'Baseline') %>% 
   select(-sampleid) %>% 
   rename(sampleid = oligoid) %>% 
-  select(-last_followup_day) %>% 
+  select(-last_followup) %>% 
   mutate(center = 'P')  %>% 
   select(colnames(m))  
   

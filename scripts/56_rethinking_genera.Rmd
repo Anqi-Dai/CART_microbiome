@@ -118,6 +118,15 @@ bind_rows(
   gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white', add = 'mean',
                   xlab = 'Predicted probability of Toxicity', ylab = 'Probability density') +
   ggsave('../figs/predicted_tox_bacteroides_top_bottom_10.pdf', width = 7, height = 5)
+
+bind_rows(
+  res_top %>% mutate(grp = 'top'),
+  res_bot %>% mutate(grp = 'bot')
+) %>% 
+  group_by(grp) %>% 
+  summarise(ave = mean(value))
+
+
 ```
 
 ### posterior check 
@@ -328,4 +337,10 @@ bind_rows(
                   xlab = 'Predicted probability of CR d100', ylab = 'Probability density')+
   ggsave('../figs/predicted_CR_Ruminococcus_top_bottom_10.pdf', width = 7, height = 5)
 
+bind_rows(
+  res_top %>% mutate(grp = 'top'),
+  res_bot %>% mutate(grp = 'bot')
+)  %>% 
+  group_by(grp) %>% 
+  summarise(ave = mean(value))
 ```
