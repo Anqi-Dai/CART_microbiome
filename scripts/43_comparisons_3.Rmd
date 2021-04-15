@@ -49,15 +49,14 @@ simple %>% write_csv('../data/shotgun_pheno/final_comprehensive_UPDATED_simple.c
 
 
 ```{r}
-pheno <- cur %>% 
+pheno <- simple %>% 
   gather('pheno', 'value', cr_d100:crs) 
 
 sub_phenos <- pheno %>% 
   split(., list(.$center, .$pheno)) %>% 
   purrr::imap(~ filter(.data = ., value != 'not_assessed'))
 
-cur %>% 
-  write_csv('../data/shotgun_pheno/final_comprehensive_updated_simple.csv')
+
 ```
 
 ```{r}
