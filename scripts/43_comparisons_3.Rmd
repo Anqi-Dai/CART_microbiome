@@ -14,6 +14,7 @@ library(tidyverse)
 SUBSTITUTE WITH HUMANN3 RESULTS WHEN I CAN 
 
 ```{r}
+# UPDATE THIS TABLE BABY
 cur <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>% 
   select(fid, center, cr_d100, toxicity, icans, crs) %>% 
   filter(center != 'I') %>% # manually update the label for the "not_assessed"
@@ -24,8 +25,30 @@ cur <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>%
     TRUE ~ cr_d100
   ))
 
-cur %>% write_csv('../data/shotgun_pheno/final_comprehensive_UPDATED.csv')
 
+# Removing the patients that the data we can't use
+# upated 2021-4-12
+now <- read_csv('/Volumes/castoricenter/CAR-Tcell_and_Microbiota/MSK/samples/eligible_sampleslist_JS.csv') %>% 
+  filter(eligible == 'yes' & shotgun == 'yes') %>% 
+  pull(pt_id)
+
+final <- read_csv('../data/shotgun_pheno/final_comprehensive.csv') %>% 
+  filter(center != 'I') %>% 
+  mutate(pt_id = as.numeric(pt_id)) %>% 
+  mutate(pt_id = if_else(center == 'P', pt_id + 8000, pt_id)) %>% 
+  filter(pt_id %in% now) # keep to the most updated list 
+
+final %>% write_csv('../data/shotgun_pheno/final_comprehensive_UPDATED.csv')
+
+# the final simple list with most up to date pheno label
+simple <- cur %>% 
+  filter(fid %in% final$fid)
+
+simple %>% write_csv('../data/shotgun_pheno/final_comprehensive_UPDATED_simple.csv')
+```
+
+
+```{r}
 pheno <- cur %>% 
   gather('pheno', 'value', cr_d100:crs) 
 
