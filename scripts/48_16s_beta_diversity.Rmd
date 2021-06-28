@@ -140,3 +140,71 @@ bc %>%
   ggsave(str_glue('../figs/beta_{g1_}_{g2_}__{label_}.pdf'))
 ```
 
+
+# do a PCOA between the healthy and the CART baseline at asv level
+
+```{r}
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database("healthy_volunteers_ag")
+get_table_from_database("asv_alpha_diversity_ag")
+stb <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+
+healthy <- healthy_volunteers_ag %>% 
+  inner_join(asv_alpha_diversity_ag, by = c("sampleid", "oligos_id")) 
+cts <- get_counts_subset(c(stb$sampleid, healthy %>% pull(sampleid)))
+
+# a total of 75 samples counts there are 3 healthy samples I don't have count ???
+nsamp <- cts %>% 
+  distinct(sampleid) %>% 
+  nrow
+
+all_pheno <- bind_rows(healthy %>% 
+  select(sampleid) %>% 
+  mutate(grp = 'healthy', center = 'healthy'),
+  stb %>% select(sampleid, center)  %>% 
+    mutate(grp = 'CART') %>% 
+    select(sampleid, grp, center)
+  ) %>% 
+  ungroup
+
+# filter >0.01% in more than 10% samples
+keepa <- cts %>% 
+  filter(count_relative > 0.0001) %>% 
+  count(asv_key) %>% 
+  filter(n > floor(nsamp * 0.1)) %>% 
+  pull(asv_key)
+
+cts_fil <- cts %>% 
+  filter(asv_key %in% keepa) %>% 
+  select(sampleid, asv_key,count_relative ) %>% 
+  spread(key = 'asv_key', value = 'count_relative', fill = 0) %>% 
+  column_to_rownames('sampleid')
+
+dist_ <- vegdist(cts_fil, method = 'bray')
+bc <- cmdscale(dist_, k = 2)
+
+bc %>%
+  as.data.frame() %>%
+  rownames_to_column('sampleid') %>% 
+  ungroup() %>% 
+  inner_join(all_pheno) %>% 
+  distinct() %>% 
+  ggscatter(x = 'V1', y = 'V2', color =  'grp') +
+  labs(title = 'PCOA of healthy and CART patients') +
+  #theme_void() +
+  ggsave('../figs/PCOA of healthy and CART patients.pdf')
+
+bc %>%
+  as.data.frame() %>%
+  rownames_to_column('sampleid') %>% 
+  ungroup() %>% 
+  inner_join(all_pheno) %>% 
+  distinct() %>% 
+  ggscatter(x = 'V1', y = 'V2', color =  'center') +
+  labs(title = 'PCOA of healthy and CART patients center') +
+  #theme_void() +
+  ggsave('../figs/PCOA of healthy and CART patients centetr.pdf')
+ 
+```
+
