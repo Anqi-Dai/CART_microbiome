@@ -13,7 +13,7 @@ library(ggpubr)
 ```
  
 ```{r}
-# sort out the genera counts table and also do filtering (need to have all taxa levels)
+# sort out the asv counts table and also do filtering (need to have all taxa levels)
 meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
 
 library(vdbR)
@@ -36,12 +36,14 @@ annot <- asv_annotation_blast_ag %>%
 cts_all <- cts_ %>% 
   full_join(annot %>%  select(asv_key, taxa_asv), by  = 'asv_key') %>% 
   select(-asv_key)  %>% 
-  gather('sampleid', 'relab', names(.)[1]:names(.)[ncol(.)-1])
+  gather('sampleid', 'relab', names(.)[1]:names(.)[ncol(.)-1]) %>% 
+  left_join(meta %>% select(sampleid, cr_d100, toxicity), by = 'sampleid')
 
 
 # the asv to keep
+# keep the asvs that show up in at least 10% of the samples
 keepg <- cts_all %>% 
-  filter(relab > 0) %>%
+  filter(relab > 0.0001) %>%
   ungroup() %>% 
   count(taxa_asv) %>% 
   filter(n > floor(nrow(meta) * 0.1)) %>% 
@@ -49,7 +51,7 @@ keepg <- cts_all %>%
 
 cts_fil <- cts_all %>% 
   filter(taxa_asv %in% keepg) %>% 
-  spread('sampleid', 'relab')
+  spread('sampleid', 'relab', fill = 0)
 ```
 
 
@@ -100,10 +102,15 @@ tcts <- all_sub_pheno %>%
   imap(~ cts_fil %>% select(taxa_asv, matches(.x)) %>%  write_tsv(str_glue('../data/amplicon/lefse/{.y}_asv_tcts.tsv'))) 
 ```
 
-cat pull_toxicity.txt toxicity_asv_tcts.tsv > pull_toxicity_asv_tcts.tsv
-cat pull_cr_d100.txt cr_d100_asv_tcts.tsv > pull_cr_d100_asv_tcts.tsv 
-cat pull_crs.txt crs_asv_tcts.tsv > pull_crs_asv_tcts.tsv
-cat pull_icans.txt icans_asv_tcts.tsv > pull_icans_asv_tcts.tsv
+
+
+```{bash}
+cat ../data/amplicon/lefse/pull_toxicity.txt ../data/amplicon/lefse/toxicity_asv_tcts.tsv > ../data/amplicon/lefse/pull_toxicity_asv_tcts.tsv
+cat ../data/amplicon/lefse/pull_cr_d100.txt ../data/amplicon/lefse/cr_d100_asv_tcts.tsv > ../data/amplicon/lefse/pull_cr_d100_asv_tcts.tsv 
+cat ../data/amplicon/lefse/pull_crs.txt ../data/amplicon/lefse/crs_asv_tcts.tsv > ../data/amplicon/lefse/pull_crs_asv_tcts.tsv
+cat ../data/amplicon/lefse/pull_icans.txt ../data/amplicon/lefse/icans_asv_tcts.tsv > ../data/amplicon/lefse/pull_icans_asv_tcts.tsv
+```
+
 
 ```{r}
 fns <- list.files('../data/amplicon/lefse/', pattern = 'pull.*_asv_tcts.tsv$')
@@ -120,8 +127,64 @@ cmds <- tibble(
   select(value) %>% 
   write_csv('../data/amplicon/lefse/lefse_run_cmd_taxa.sh', col_names = F)
    
-# No differentially abundant features found in the 4
-# also this is the case when using center as subclass 
+
 ```
 
   
+```{r}
+# to see the relative abundance of those taxa 
+# to get the top and bottom three taxa of the lefse results
+res <- list.files('../data/amplicon/lefse/', pattern = 'asv_tcts.tsv.res$', full.names = T)
+
+# gather the species level taxa in the lefse significant results
+res_all <- res %>% 
+  set_names(res) %>% 
+  map(~ read_tsv(., col_names = c('feature','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  keep(~ nrow(.) > 0) %>% 
+  bind_rows(.id = 'res') %>% 
+  mutate(res = str_replace(res, '^.+//',''),
+         res = str_replace(res, '_asv.+$',''))  %>% 
+  rename(grp = res) %>% 
+  filter(grp %in% c('pull_cr_d100','pull_toxicity')) %>% 
+  mutate(feature = str_replace_all(feature, '\\.','\\|')) %>% 
+  #split(., list(.$grp, .$direction)) %>% 
+  #map_dfr(~ top_n(x = ., n = 4, wt = score) %>% arrange(-score)) %>% 
+  filter(str_detect(feature, 's__.+$')) %>% 
+  filter(!str_detect(feature, 'a__.+$')) %>% 
+  mutate(feature = str_replace(feature, '^.+s__','')) %>% 
+  mutate(feature = str_replace(feature, '_Clostridium_', '[Clostridium]')) %>% 
+  ungroup()
+
+
+# plot the relab of those taxa (at species level) in boxplot
+# get the species counts of the sampels
+cts_spp <- cts_ %>% 
+  full_join(annot %>%  select(asv_key, species), by  = 'asv_key') %>% 
+  select(-asv_key)  %>% 
+  gather('sampleid', 'relab', names(.)[1]:names(.)[ncol(.)-1]) %>% 
+  group_by(sampleid, species) %>% 
+  summarise(Relab = sum(relab)) %>% 
+  select(sampleid, species, Relab) %>% 
+  left_join(meta %>% select(sampleid, cr_d100, toxicity), by = 'sampleid') %>% 
+  ungroup()
+
+joined <- cts_spp %>% 
+  inner_join(res_all, by = c('species' = 'feature'))
+
+# finally I can do the plotting
+
+joined  %>%
+  filter(grp == 'pull_cr_d100') %>% 
+  ggboxplot(x = 'cr_d100', y = 'Relab', add = 'jitter') +
+  facet_wrap(direction ~ species)
+ 
+```
+  
+```{r}
+joined  %>%
+  filter(grp == 'pull_toxicity') %>% 
+  ggboxplot(x = 'toxicity', y = 'Relab', add = 'jitter') +
+  facet_wrap(direction ~ species)
+```
+
