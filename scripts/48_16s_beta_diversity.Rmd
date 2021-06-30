@@ -208,3 +208,9 @@ bc %>%
  
 ```
 
+```{r}
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database('shotgun_lookup_ad')
+```
+
