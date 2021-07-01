@@ -18,6 +18,9 @@ library(magrittr)
 library(ggeffects)
 library(tidyverse)
 library(lme4)
+library(cowplot)
+library(grid)
+library(ggpubr)
 ```
 
 ```{r}
@@ -37,6 +40,8 @@ dat %>%
 
 ## Toxicity ~ alpha diversity + center
 
+**The ggeffects package computes estimated marginal means (predicted values) for the response, at the margin of specific values or levels from certain model terms, i.e. it generates predictions by a model by holding the non-focal variables constant and varying the focal variable(s). ggpredict() uses predict() for generating predictions**
+
 ```{r}
 m_tox <- glm(
   toxicity ~ simpson_reciprocal + center, 
@@ -45,7 +50,7 @@ m_tox <- glm(
 )
 summary(m_tox)
 
-ggpredict(m_tox,se=TRUE,interactive=TRUE,digits=3, c('simpson_reciprocal','center')) %>% plot()
+ggpredict(m_tox,se=TRUE,interactive=TRUE,digits=3, c('simpson_reciprocal')) %>% plot()
 ```
 
 ## CR ~ alpha diversity + center
@@ -58,19 +63,28 @@ m_CR <- glm(
 )
 summary(m_CR)
 
-ggpredict(m_CR,se=TRUE,interactive=TRUE,digits=3, c('simpson_reciprocal','center')) %>% plot()
+ggpredict(m_CR,se=TRUE,interactive=TRUE,digits=3, c('simpson_reciprocal')) %>% plot()
 ```
 
 # 5 genera as predictor
 
 ## Toxicity ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center
 
+The genera's relative abundance is log10 transformed. 
+
 ```{r}
 genera <- read_csv('../data/amplicon/stool/combined_5_genera.csv')
 
+# the CLR transformed genera abundance 
+clr <- read_csv('../data/amplicon/stool/counts_genus_combined_CLR.csv')  %>% 
+  spread(key = 'genus', value = 'clr')
+
 gmeta <- meta  %>% 
-  inner_join(genera) %>% 
+  inner_join(clr) %>% 
   select(toxicity,cr_d100, Akkermansia,Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus , center)
+
+gmeta %>% 
+  head
 ```
 
 ```{r}
@@ -81,11 +95,19 @@ g_tox <- glm(
 )
 summary(g_tox)
 
-ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides','center')) %>% plot()
-ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus','center')) %>% plot()
-ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus','center')) %>% plot()
-ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia','center')) %>% plot()
-ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium','center')) %>% plot()
+gb <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides')) %>% plot()
+gr <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus')) %>% plot()
+ge <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% plot()
+ga <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
+gf <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
+
+gtox <- ggarrange(gb, gr, ge, ga, gf,
+    ncol = 1
+    #o = 'hv',
+    #labels = 'AUTO',
+    #axis = 'bltr'
+    ) +
+    ggsave(str_glue('../figs/amplicon/gtox_CLR_5.pdf'), width = 3, height = 8, dpi = 300)
 ```
 
 ## CR ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center
@@ -98,10 +120,19 @@ g_CR <- glm(
 )
 summary(g_CR)
 
-ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides','center')) %>% plot()
-ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus','center')) %>% plot()
-ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus','center')) %>% plot()
-ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia','center')) %>% plot()
-ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium','center')) %>% plot()
+gb <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides')) %>% plot()
+gr <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus')) %>% plot()
+ge <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% plot()
+ga <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
+gf <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
+
+
+gCR <- ggarrange(gb, gr, ge, ga, gf,
+    ncol = 1
+    #o = 'hv',
+    #labels = 'AUTO',
+    #axis = 'bltr'
+    ) +
+    ggsave(str_glue('../figs/amplicon/gcr_CLR_5.pdf'), width = 3, height = 8, dpi = 300)
 ```
 

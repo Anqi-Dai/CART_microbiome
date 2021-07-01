@@ -41,45 +41,19 @@ cts_all <- cts_ %>%
 
 
 # the asv to keep
-# keep the asvs that show up in at least 10% of the samples
+# keep the asvs that show up in at least 25% of the samples
 keepg <- cts_all %>% 
   filter(relab > 0.0001) %>%
   ungroup() %>% 
   count(taxa_asv) %>% 
-  filter(n > floor(nrow(meta) * 0.1)) %>% 
+  filter(n > floor(nrow(meta) * 0.25)) %>% 
   pull(taxa_asv)
-
+ 
 cts_fil <- cts_all %>% 
   filter(taxa_asv %in% keepg) %>% 
   spread('sampleid', 'relab', fill = 0)
 ```
 
-
-```{r}
-# dat <- genera %>% 
-#   filter(genus == 'Ruminococcus') %>% 
-#   gather('sampleid', 'relab', names(.)[2]:names(.)[ncol(.)]) %>% 
-#   full_join(meta) %>% 
-#   mutate(logrelab =  log10(relab + 2e-6)) 
-# 
-# yes <- dat %>% 
-#   filter(cr_d100 == 'yes')
-# no <- dat %>% 
-#   filter(cr_d100 == 'no')
-# 
-# 
-# dat %>% 
-#   #filter(center == 'M') %>% 
-#   mutate(logrelab =  log10(relab + 2e-6)) %>% 
-#   ggboxplot(x = 'cr_d100', y = 'logrelab', add = 'jitter') +
-# stat_compare_means(comparisons= list(c('yes', 'no')),
-# 										label= "p.signif",
-# 										method= 'wilcox.test',
-# 										correct=FALSE)
-# 
-# t.test(yes$logrelab, no$logrelab)
-
-```
 
 ```{r}
 # the pheno label for the samples
