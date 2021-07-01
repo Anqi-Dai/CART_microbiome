@@ -124,9 +124,11 @@ res_all <- res %>%
   mutate(feature = str_replace_all(feature, '\\.','\\|')) %>% 
   #split(., list(.$grp, .$direction)) %>% 
   #map_dfr(~ top_n(x = ., n = 4, wt = score) %>% arrange(-score)) %>% 
-  filter(str_detect(feature, 's__.+$')) %>% 
-  filter(!str_detect(feature, 'a__.+$')) %>% 
-  mutate(feature = str_replace(feature, '^.+s__','')) %>% 
+  # filter(str_detect(feature, 's__.+$')) %>% 
+  # filter(!str_detect(feature, 'a__.+$')) %>% 
+  filter(str_detect(feature, 'g__.+$')) %>% 
+  filter(!str_detect(feature, 's__.+$')) %>% 
+  mutate(feature = str_replace(feature, '^.+g__','')) %>% 
   mutate(feature = str_replace(feature, '_Clostridium_', '[Clostridium]')) %>% 
   ungroup()
 
@@ -143,15 +145,25 @@ cts_spp <- cts_ %>%
   left_join(meta %>% select(sampleid, cr_d100, toxicity), by = 'sampleid') %>% 
   ungroup()
 
-joined <- cts_spp %>% 
-  inner_join(res_all, by = c('species' = 'feature'))
+cts_genus <- cts_ %>% 
+  full_join(annot %>%  select(asv_key, genus), by  = 'asv_key') %>% 
+  select(-asv_key)  %>% 
+  gather('sampleid', 'relab', names(.)[1]:names(.)[ncol(.)-1]) %>% 
+  group_by(sampleid, genus) %>% 
+  summarise(Relab = sum(relab)) %>% 
+  select(sampleid, genus, Relab) %>% 
+  left_join(meta %>% select(sampleid, cr_d100, toxicity), by = 'sampleid') %>% 
+  ungroup()
+
+joined <- cts_genus %>% 
+  inner_join(res_all, by = c('genus' = 'feature'))
 
 # finally I can do the plotting
 
 joined  %>%
   filter(grp == 'pull_cr_d100') %>% 
   ggboxplot(x = 'cr_d100', y = 'Relab', add = 'jitter', title = 'Outcome: cr_d100') +
-  facet_wrap(direction ~ species) +
+  facet_wrap(direction ~ genus) +
   ggsave('../figs/amplicon/lefse_taxa_crd100.pdf', width = 15, height = 13)
  
 ```
@@ -160,7 +172,7 @@ joined  %>%
 joined  %>%
   filter(grp == 'pull_toxicity') %>% 
   ggboxplot(x = 'toxicity', y = 'Relab', add = 'jitter', title = 'Outcome: toxicity') +
-  facet_wrap(direction ~ species) +
+  facet_wrap(direction ~ genus) +
   ggsave('../figs/amplicon/lefse_taxa_toxicity.pdf', width = 15, height = 13)
 ```
 

@@ -101,13 +101,12 @@ ge <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% 
 ga <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
 gf <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
 
-gtox <- ggarrange(gb, gr, ge, ga, gf,
+gtox_clr <- ggarrange(gb, gr, ge, ga, gf,
     ncol = 1
     #o = 'hv',
     #labels = 'AUTO',
     #axis = 'bltr'
-    ) +
-    ggsave(str_glue('../figs/amplicon/gtox_CLR_5.pdf'), width = 3, height = 8, dpi = 300)
+    ) 
 ```
 
 ## CR ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center
@@ -127,12 +126,75 @@ ga <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% pl
 gf <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
 
 
-gCR <- ggarrange(gb, gr, ge, ga, gf,
+gCR_clr <- ggarrange(gb, gr, ge, ga, gf,
     ncol = 1
     #o = 'hv',
     #labels = 'AUTO',
     #axis = 'bltr'
     ) +
     ggsave(str_glue('../figs/amplicon/gcr_CLR_5.pdf'), width = 3, height = 8, dpi = 300)
+```
+
+# log 10 transformed version of the genera relab
+
+```{r}
+gmeta_log10 <- meta  %>% 
+  inner_join(genera) %>% 
+  select(toxicity,cr_d100, Akkermansia,Bacteroides, Enterococcus, Faecalibacterium, Ruminococcus , center)
+
+```
+
+```{r}
+g_tox <- glm(
+  toxicity ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center, 
+  data = gmeta_log10, 
+  family = binomial(link = "logit")
+)
+summary(g_tox)
+gb <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides')) %>% plot()
+gr <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus')) %>% plot()
+ge <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% plot()
+ga <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
+gf <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
+gtox_log <- ggarrange(gb, gr, ge, ga, gf,
+    ncol = 1
+    #o = 'hv',
+    #labels = 'AUTO',
+    #axis = 'bltr'
+    ) +
+    ggsave(str_glue('../figs/amplicon/gtox_log10_5.pdf'), width = 3, height = 8, dpi = 300)
+```
+
+## CR ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center
+
+```{r}
+g_CR <- glm(
+  cr_d100 ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center, 
+  data = gmeta_log10, 
+  family = binomial(link = "logit")
+)
+summary(g_CR)
+gb <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides')) %>% plot()
+gr <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus')) %>% plot()
+ge <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% plot()
+ga <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
+gf <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
+gCR_log <- ggarrange(gb, gr, ge, ga, gf,
+    ncol = 1
+    #o = 'hv',
+    #labels = 'AUTO',
+    #axis = 'bltr'
+    ) 
+```
+
+# side-by-side comparison of the CLR and log10 transformed 
+
+```{r}
+tox_all <- ggarrange(gtox_log, gtox_clr, nrow = 1) +
+    ggsave(str_glue('../figs/amplicon/gtox_all_5.pdf'), width = 6, height = 8, dpi = 300)
+
+
+cr_all <- ggarrange(gCR_log, gCR_clr, nrow = 1) +
+    ggsave(str_glue('../figs/amplicon/gCR_all_5.pdf'), width = 6, height = 8, dpi = 300)
 ```
 
