@@ -46,6 +46,8 @@ simple <- cur %>%
 
 simple %>% write_csv('../data/shotgun_pheno/final_comprehensive_UPDATED_simple.csv')
 
+simple <- read_csv('../data/shotgun_pheno/final_comprehensive_UPDATED_simple.csv')
+
 pheno <- simple %>% 
   gather('pheno', 'value', cr_d100:crs) 
 ```
@@ -136,6 +138,49 @@ all_pcts <- all_sub_pheno %>%
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ full %>% select(`# Pathway`, matches(.x)) %>% 
          write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_pcts.tsv')))
+```
+
+```{r}
+# add a filtering step here 
+# 50 and 25% 
+pcts <- read_tsv('../data/shotgun_output/humann3/humann_final_out/pull_cr_d100_pcts_cpm_unstratified.tsv') %>% 
+  gather('sampleid', 'cpm', names(.)[2]:names(.)[ncol(.)]) %>% 
+  rename(pw = `# Pathway`)
+
+keeppw <- pcts %>% 
+  filter(cpm > 50) %>%
+  ungroup() %>% 
+  count(pw) %>% 
+  filter(n > floor(nrow(simple) * 0.25)) %>% 
+  pull(pw)
+
+cts_fil <- pcts %>% 
+  filter(pw %in% keeppw) %>% 
+  spread('sampleid', 'cpm', fill = 0)
+
+cts_fil %>% 
+  write_tsv('../data/shotgun_output/humann3/humann_final_out/pull_cr_d100_pcts_cpm_unstratified_fil.tsv')
+```
+
+```{r}
+# tox
+pcts <- read_tsv('../data/shotgun_output/humann3/humann_final_out/pull_toxicity_pcts_cpm_unstratified.tsv') %>% 
+  gather('sampleid', 'cpm', names(.)[2]:names(.)[ncol(.)]) %>% 
+  rename(pw = `# Pathway`)
+
+keeppw <- pcts %>% 
+  filter(cpm > 50) %>%
+  ungroup() %>% 
+  count(pw) %>% 
+  filter(n > floor(nrow(simple) * 0.25)) %>% 
+  pull(pw)
+
+cts_fil <- pcts %>% 
+  filter(pw %in% keeppw) %>% 
+  spread('sampleid', 'cpm', fill = 0)
+
+cts_fil %>% 
+  write_tsv('../data/shotgun_output/humann3/humann_final_out/pull_toxicity_pcts_cpm_unstratified_fil.tsv')
 ```
 
 

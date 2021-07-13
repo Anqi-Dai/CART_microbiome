@@ -14,13 +14,15 @@ knitr::opts_chunk$set(echo = TRUE, message = F)
 ```
 
 ```{r}
-library(magrittr)
+library(magrittr) 
 library(ggeffects)
 library(tidyverse)
 library(lme4)
 library(cowplot)
 library(grid)
 library(ggpubr)
+library(sjPlot)
+theme_set(theme_sjplot())
 ```
 
 ```{r}
@@ -48,10 +50,45 @@ m_tox <- glm(
   data = dat, 
   family = binomial(link = "logit")
 )
+
 summary(m_tox)
 
-ggpredict(m_tox,se=TRUE,interactive=TRUE,digits=3, c('simpson_reciprocal')) %>% plot()
+
+#ggpredict(m_tox,se=TRUE,interactive=TRUE,digits=3, c('simpson_reciprocal')) %>% plot()
+
+# plot_model(m_tox, transform = NULL) +
+#   ggsave('../figs/amplicon/diversity_tox_logi.pdf', height = 3, width = 4)
+
+or_CI <- round(cbind(coef(m_tox), confint(m_tox)), digits=3) %>% 
+  as.data.frame()
+
+or_CI <- or_CI %>% 
+  mutate(variable=rownames(or_CI)) %>% 
+  rename(lower_bound = `2.5 %` , upper_bound = `97.5 %`) 
+
+# Now plot them
+or_CI[2,] %>%  #remove row number 1 (The intercept)
+  ggplot(aes(x = reorder(variable, V1), y = V1)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = lower_bound,
+                    ymax  = upper_bound),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-0.5, 1)) +
+  #geom_hline(yintercept = 1, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'Toxicity') +
+  ggsave('../figs/amplicon/logis_div_tox.pdf', width = 5, height = 4)
+
 ```
+
+
 
 ## CR ~ alpha diversity + center
 
@@ -61,9 +98,47 @@ m_CR <- glm(
   data = dat, 
   family = binomial(link = "logit")
 )
-summary(m_CR)
 
-ggpredict(m_CR,se=TRUE,interactive=TRUE,digits=3, c('simpson_reciprocal')) %>% plot()
+
+or_CI <- round(cbind(coef(m_CR), confint(m_CR)), digits=3) %>% 
+  as.data.frame()
+
+or_CI <- or_CI %>% 
+  mutate(variable=rownames(or_CI)) %>% 
+  rename(lower_bound = `2.5 %` , upper_bound = `97.5 %`) 
+
+
+#Now plot them
+or_CI[2,] %>%  #remove row number 1 (The intercept)
+  ggplot(aes(x = reorder(variable, V1), y = V1)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = lower_bound,
+                    ymax  = upper_bound),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-0.5, 1)) +
+  #geom_hline(yintercept = 1, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'CR') +
+  ggsave('../figs/amplicon/logis_div_cr.pdf', width = 5, height = 4)
+```
+```{r}
+# plot_model(m_CR, transform = NULL, terms = c('simpson_reciprocal')) +
+#   ggsave('../figs/amplicon/diversity_cr_logi.pdf', height = 3, width = 4)
+# 
+# get_model_data(m_CR, type = "est")
+# log(get_model_data(m_CR, type = "est")$estimate)
+```
+
+
+```{r}
+#ggpredict(m_CR,se=TRUE,interactive=TRUE,digits=3, c('simpson_reciprocal')) %>% plot()
 ```
 
 # 5 genera as predictor
@@ -95,18 +170,25 @@ g_tox <- glm(
 )
 summary(g_tox)
 
+ 
 gb <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides')) %>% plot()
 gr <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus')) %>% plot()
 ge <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% plot()
 ga <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
 gf <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
 
+plot_model(g_tox)+
+  ggsave('../figs/amplicon/genera_tox_logi_CLR.pdf', height = 3, width = 4)
+```
+
+
+```{r}
 gtox_clr <- ggarrange(gb, gr, ge, ga, gf,
     ncol = 1
     #o = 'hv',
     #labels = 'AUTO',
     #axis = 'bltr'
-    ) 
+    )  
 ```
 
 ## CR ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center
@@ -125,7 +207,12 @@ ge <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% p
 ga <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
 gf <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
 
+plot_model(g_CR)+
+  ggsave('../figs/amplicon/genera_cr_logi_CLR.pdf', height = 3, width = 4)
+```
 
+
+```{r}
 gCR_clr <- ggarrange(gb, gr, ge, ga, gf,
     ncol = 1
     #o = 'hv',
@@ -163,6 +250,9 @@ gtox_log <- ggarrange(gb, gr, ge, ga, gf,
     #axis = 'bltr'
     ) +
     ggsave(str_glue('../figs/amplicon/gtox_log10_5.pdf'), width = 3, height = 8, dpi = 300)
+
+plot_model(g_tox) +
+  ggsave('../figs/amplicon/genera_tox_logi_log10.pdf', height = 3, width = 4)
 ```
 
 ## CR ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center
@@ -185,6 +275,9 @@ gCR_log <- ggarrange(gb, gr, ge, ga, gf,
     #labels = 'AUTO',
     #axis = 'bltr'
     ) 
+
+plot_model(g_CR)+
+  ggsave('../figs/amplicon/genera_cr_logi_log10.pdf', height = 3, width = 4)
 ```
 
 # side-by-side comparison of the CLR and log10 transformed 

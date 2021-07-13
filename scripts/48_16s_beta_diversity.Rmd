@@ -235,11 +235,14 @@ mp <- bc %>%
   ungroup() %>% 
   inner_join(all_pheno) %>% 
   distinct(sampleid, .keep_all = T)  %>% 
-  mutate(pool = str_extract(path_pool, 'Sample.+/'))
+  mutate(pool = str_extract(path_pool, 'Sample.+/')) %>% 
+  mutate(pool = str_replace(pool, 'Sample_','')) %>% 
+  mutate(pool = if_else(str_detect(pool, 'IGO'), str_extract(pool, 'IGO.+$'), pool)) %>% 
+  mutate(pool = str_replace(pool, '_1/|_comple.+$',''))
 
 mp %>% 
-  ggscatter(x = 'V1', y = 'V2', color =  'pool', shape = 'center') +
-  labs(title = 'PCOA of healthy and CART patients') +
+  ggscatter(x = 'V1', y = 'V2', color =  'pool') +
+  labs(title = 'PCOA of CART patients') +
   #theme_void() +
   ggsave('../figs/PCOA(bray-curtis) (ASV level)of CART patients_pool.pdf', width = 5, height = 6)
 ``` 

@@ -1,0 +1,142 @@
+---
+title: "bayesian with Bifido"
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F)
+```
+
+```{r}
+library(rethinking)
+library(tidyverse)  
+library(ggpubr)
+set.seed(123)
+```
+
+
+# CR/Toxicity ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + Bifidobacterium + center
+
+
+```{r}
+bifido <- read_csv('../data/amplicon/stool/counts_genus_combined.csv') %>% 
+  filter(genus == 'Bifidobacterium') %>% 
+  select(-center) %>% 
+  spread(key = 'genus', value = 'relab') %>% 
+  mutate(Bifidobacterium = log10(Bifidobacterium + 2*10^-6))
+
+genera <- read_csv('../data/amplicon/stool/combined_5_genera.csv') %>% 
+  inner_join(bifido)
+
+# do not standardize the log transformed relative abundance 
+meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')  %>% 
+  inner_join(genera) %>% 
+  mutate(diseaseID = if_else(disease == 'NHL', 1, 2))
+
+# wanna see the range of the 5 genera log 10 relab
+meta %>% select(Akkermansia:Bifidobacterium) %>% 
+  summary
+```
+
+
+```{r}
+set.seed(123)   
+dat_list <- list(
+    tox = meta$tox,
+    cr100 = meta$cr100,
+    location = meta$loca,
+    Akkermansia = meta$Akkermansia,
+    Bacteroides = meta$Bacteroides,
+    Enterococcus = meta$Enterococcus,
+    Faecalibacterium = meta$Faecalibacterium,
+    Ruminococcus = meta$Ruminococcus,
+    Bifidobacterium = meta$Bifidobacterium,
+    did = meta$diseaseID
+    ) 
+```
+
+```{r}
+gtox <- ulam(
+    alist(
+        tox ~ dbinom( 1 , p ) ,
+        logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + bd*Bifidobacterium + a[location] ,
+        ba ~ dnorm( 0 , 1),
+        bb ~ dnorm( 0 , 1),
+        be ~ dnorm( 0 , 1),
+        bf ~ dnorm( 0 , 1),
+        br ~ dnorm( 0 , 1),
+        bd ~ dnorm( 0 , 1),
+        a[location] ~ dnorm( 0 , 0.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+precis(gtox, prob = 0.95)   
+plot(precis(gtox, depth = 2, prob = 0.95) )  
+# the  Ruminococcus looks more significant now
+```
+
+```{r}
+gcr <- ulam(
+    alist(
+        cr100 ~ dbinom( 1 , p ) ,
+        logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + bd*Bifidobacterium + a[location] ,
+        ba ~ dnorm( 0 , 1),
+        bb ~ dnorm( 0 , 1),
+        be ~ dnorm( 0 , 1),
+        bf ~ dnorm( 0 , 1),
+        br ~ dnorm( 0 , 1),
+        bd ~ dnorm( 0 , 1),
+        a[location] ~ dnorm( 0 , 0.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+precis(gcr, prob = 0.95) 
+plot(precis(gcr, depth = 2, prob = 0.95) ) 
+# no posterior prediction 
+# genera from literature , 
+```
+
+# add disease to the original model 
+
+```{r}
+gtox_d <- ulam(
+    alist(
+        tox ~ dbinom( 1 , p ) ,
+        logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + d[did] + a[location] ,
+        ba ~ dnorm( 0 , 1),
+        bb ~ dnorm( 0 , 1),
+        be ~ dnorm( 0 , 1),
+        bf ~ dnorm( 0 , 1),
+        br ~ dnorm( 0 , 1),
+        d[did] ~ dnorm( 0 , 0.5 ),
+        a[location] ~ dnorm( 0 , 0.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+precis(gtox_d, prob = 0.95)   
+plot(precis(gtox_d, depth = 2, prob = 0.95) )  
+# the disease effect is not strong as center 
+```
+
+```{r}
+gcr_d <- ulam(
+    alist(
+        cr100 ~ dbinom( 1 , p ) ,
+        logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + d[did] + a[location] ,
+        ba ~ dnorm( 0 , 1),
+        bb ~ dnorm( 0 , 1),
+        be ~ dnorm( 0 , 1),
+        bf ~ dnorm( 0 , 1),
+        br ~ dnorm( 0 , 1),
+        d[did] ~ dnorm( 0 , 0.5 ),
+        a[location] ~ dnorm( 0 , 0.5 )
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+precis(gcr_d, prob = 0.95) 
+plot(precis(gcr_d, depth = 2, prob = 0.95) ) 
+```
+
+```{r}
+# the distribution of the outcome in each of the disease
+table(meta$disease, meta$cr_d100)
+table(meta$disease, meta$toxicity)
+```
+

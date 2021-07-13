@@ -163,7 +163,7 @@ joined <- cts_genus %>%
 joined  %>%
   filter(grp == 'pull_cr_d100') %>% 
   ggboxplot(x = 'cr_d100', y = 'Relab', add = 'jitter', title = 'Outcome: cr_d100') +
-  facet_wrap(direction ~ genus) +
+  facet_wrap(direction ~ genus, scales="free_y") +
   ggsave('../figs/amplicon/lefse_taxa_crd100.pdf', width = 15, height = 13)
  
 ```
@@ -172,7 +172,7 @@ joined  %>%
 joined  %>%
   filter(grp == 'pull_toxicity') %>% 
   ggboxplot(x = 'toxicity', y = 'Relab', add = 'jitter', title = 'Outcome: toxicity') +
-  facet_wrap(direction ~ genus) +
+  facet_wrap(direction ~ genus, scales="free_y") +
   ggsave('../figs/amplicon/lefse_taxa_toxicity.pdf', width = 15, height = 13)
 ```
 
