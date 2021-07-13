@@ -150,9 +150,7 @@ The genera's relative abundance is log10 transformed.
 ```{r}
 genera <- read_csv('../data/amplicon/stool/combined_5_genera.csv')
 
-# the CLR transformed genera abundance 
-clr <- read_csv('../data/amplicon/stool/counts_genus_combined_CLR.csv')  %>% 
-  spread(key = 'genus', value = 'clr')
+
 
 gmeta <- meta  %>% 
   inner_join(clr) %>% 
@@ -162,65 +160,17 @@ gmeta %>%
   head
 ```
 
-```{r}
-g_tox <- glm(
-  toxicity ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center, 
-  data = gmeta, 
-  family = binomial(link = "logit")
-)
-summary(g_tox)
-
- 
-gb <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides')) %>% plot()
-gr <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus')) %>% plot()
-ge <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% plot()
-ga <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
-gf <- ggpredict(g_tox,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
-
-plot_model(g_tox)+
-  ggsave('../figs/amplicon/genera_tox_logi_CLR.pdf', height = 3, width = 4)
-```
 
 
-```{r}
-gtox_clr <- ggarrange(gb, gr, ge, ga, gf,
-    ncol = 1
-    #o = 'hv',
-    #labels = 'AUTO',
-    #axis = 'bltr'
-    )  
-```
+
+
 
 ## CR ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center
 
-```{r}
-g_CR <- glm(
-  cr_d100 ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center, 
-  data = gmeta, 
-  family = binomial(link = "logit")
-)
-summary(g_CR)
-
-gb <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Bacteroides')) %>% plot()
-gr <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Ruminococcus')) %>% plot()
-ge <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Enterococcus')) %>% plot()
-ga <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Akkermansia')) %>% plot()
-gf <- ggpredict(g_CR,se=TRUE,interactive=TRUE,digits=3, c('Faecalibacterium')) %>% plot()
-
-plot_model(g_CR)+
-  ggsave('../figs/amplicon/genera_cr_logi_CLR.pdf', height = 3, width = 4)
-```
 
 
-```{r}
-gCR_clr <- ggarrange(gb, gr, ge, ga, gf,
-    ncol = 1
-    #o = 'hv',
-    #labels = 'AUTO',
-    #axis = 'bltr'
-    ) +
-    ggsave(str_glue('../figs/amplicon/gcr_CLR_5.pdf'), width = 3, height = 8, dpi = 300)
-```
+
+
 
 # log 10 transformed version of the genera relab
 
@@ -251,8 +201,36 @@ gtox_log <- ggarrange(gb, gr, ge, ga, gf,
     ) +
     ggsave(str_glue('../figs/amplicon/gtox_log10_5.pdf'), width = 3, height = 8, dpi = 300)
 
-plot_model(g_tox) +
-  ggsave('../figs/amplicon/genera_tox_logi_log10.pdf', height = 3, width = 4)
+# plot_model(g_tox) +
+#   ggsave('../figs/amplicon/genera_tox_logi_log10.pdf', height = 3, width = 4)
+```
+
+
+```{r}
+or_CI <- round(cbind(coef(g_tox), confint(g_tox)), digits=3) %>% 
+  as.data.frame()
+or_CI <- or_CI %>% 
+  mutate(variable=rownames(or_CI)) %>% 
+  rename(lower_bound = `2.5 %` , upper_bound = `97.5 %`) 
+# Now plot them
+or_CI[-c(1,7),] %>%  #remove row number 1 (The intercept)
+  ggplot(aes(x = variable, y = V1)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = lower_bound,
+                    ymax  = upper_bound),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-1.5, 1.5)) +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'Toxicity') +
+  ggsave('../figs/amplicon/logis_genera_tox.pdf', width = 5, height = 4)
 ```
 
 ## CR ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + center
@@ -278,6 +256,33 @@ gCR_log <- ggarrange(gb, gr, ge, ga, gf,
 
 plot_model(g_CR)+
   ggsave('../figs/amplicon/genera_cr_logi_log10.pdf', height = 3, width = 4)
+```
+
+```{r}
+or_CI <- round(cbind(coef(g_CR), confint(g_CR)), digits=3) %>% 
+  as.data.frame()
+or_CI <- or_CI %>% 
+  mutate(variable=rownames(or_CI)) %>% 
+  rename(lower_bound = `2.5 %` , upper_bound = `97.5 %`) 
+# Now plot them
+or_CI[-c(1,7),] %>%  #remove row number 1 (The intercept)
+  ggplot(aes(x = variable, y = V1)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = lower_bound,
+                    ymax  = upper_bound),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-1.5, 1.5)) +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'CR') +
+  ggsave('../figs/amplicon/logis_genera_cr.pdf', width = 5, height = 4)
 ```
 
 # side-by-side comparison of the CLR and log10 transformed 
