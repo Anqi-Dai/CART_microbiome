@@ -80,6 +80,37 @@ mtox <- ulam(
 # the std of b is 2, since we assume the microbiome could have big impact on immunology (based on our previous understanding and knowledge )
 precis(mtox,  prob = 0.95)
 plot(precis(mtox, depth = 2, prob = 0.95 ) , pars = ('b'), labels = c('simpson_reciprocal'))
+
+# make this plot myself with a pre-defined range in the axis
+df <- precis(mtox,  prob = 0.95)  %>% as.tibble()
+df <- df %>%
+  mutate(variable = 'simpson_reciprocal')
+
+#remove row number 1 (The intercept)
+df %>% 
+  ggplot(aes(x = reorder(variable, mean), y = mean)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = `2.5%`,
+                    ymax  = `97.5%`),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-0.7, 1)) +
+  #geom_hline(yintercept = 1, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'Toxicity') +
+  ggsave('../figs/amplicon/bayesian_div_tox.pdf', width = 5, height = 4)
+
+
+```
+
+
+```{r}
 # there is baseline difference between penn and Msk and MSK has higher tox rage in general.
 # it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
 div_value <- c(-1, 1)
@@ -240,6 +271,34 @@ plot(precis(mcr, depth = 2, prob = 0.95 ) , pars = ('b'), labels = c('simpson_re
 # if using appropriate prior the association is less sure
  
 ```
+
+```{r}
+# make this plot myself with a pre-defined range in the axis
+df <- precis(mcr,  prob = 0.95)  %>% as.tibble()
+df <- df %>%
+  mutate(variable = 'simpson_reciprocal')
+
+#remove row number 1 (The intercept)
+df %>% 
+  ggplot(aes(x = reorder(variable, mean), y = mean)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = `2.5%`,
+                    ymax  = `97.5%`),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-0.7, 1)) +
+  #geom_hline(yintercept = 1, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'CR') +
+  ggsave('../figs/amplicon/bayesian_div_cr.pdf', width = 5, height = 4)
+```
+
 
 ```{r}
 # doing a prior check

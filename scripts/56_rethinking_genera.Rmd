@@ -62,11 +62,39 @@ gtox <- ulam(
         bf ~ dnorm( 0 , 1),
         br ~ dnorm( 0 , 1),
         a[location] ~ dnorm( 0 , 0.5 )
-    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 16)
 precis(gtox, prob = 0.95)   
-plot(precis(gtox, depth = 2, prob = 0.95) )  
+plot(precis(gtox, depth = 2, prob = 0.95) , pars = c('ba','bb','be','bf','br'), labels = c('Akkermansia', 'Bacteroides','Enterococcus','Faecalibacterium','Ruminococcus'))  
 # indicative of the Bacteroides link with toxicity  
 ```
+   
+```{r}
+# make this plot myself with a pre-defined range in the axis
+df <- precis(gtox,  prob = 0.95)  %>% as.tibble()
+df <- df %>%
+  mutate(variable = c('Akkermansia', 'Bacteroides','Enterococcus','Faecalibacterium','Ruminococcus'))
+
+#remove row number 1 (The intercept)
+df %>% 
+  ggplot(aes(x = variable, y = mean)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = `2.5%`,
+                    ymax  = `97.5%`),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-1.5, 1.5)) +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'Toxicity') +
+  ggsave('../figs/amplicon/bayesian_genera_tox.pdf', width = 5, height = 4)
+```
+   
    
 ```{r}
 post <- extract.samples(gtox) 
@@ -191,6 +219,33 @@ gcr <- ulam(
 precis(gcr, prob = 0.95) 
 plot(precis(gcr, depth = 2, prob = 0.95) ) 
 # I think the Ruminococcus still holds for the CR
+```
+
+```{r}
+# make this plot myself with a pre-defined range in the axis
+df <- precis(gcr,  prob = 0.95)  %>% as.tibble()
+df <- df %>%
+  mutate(variable = c('Akkermansia', 'Bacteroides','Enterococcus','Faecalibacterium','Ruminococcus'))
+
+#remove row number 1 (The intercept)
+df %>% 
+  ggplot(aes(x = variable, y = mean)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = `2.5%`,
+                    ymax  = `97.5%`),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-1.5, 1.5)) +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'CR') +
+  ggsave('../figs/amplicon/bayesian_genera_cr.pdf', width = 5, height = 4)
 ```
 
 
