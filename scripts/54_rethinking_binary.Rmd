@@ -120,15 +120,15 @@ div_value <- c(-1, 1)
 
 ```{r}
 # another model with the crs grade 0,1,>=2 
-mcrs3 <- ulam(
-    alist(
-        crs3 ~ dordlogit( phi , cutpoints ),
-        phi <- b*logdiv_s + a[location] ,
-        b ~ dnorm( 0 , 1),  
-        a[location] ~ dnorm( 0 , 0.5 ),
-        cutpoints ~ dnorm( 0 , 1.5 )
-    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
-plot(precis(mcrs3, depth = 2, prob = 0.95) ) 
+# mcrs3 <- ulam(
+#     alist(
+#         crs3 ~ dordlogit( phi , cutpoints ),
+#         phi <- b*logdiv_s + a[location] ,
+#         b ~ dnorm( 0 , 1),  
+#         a[location] ~ dnorm( 0 , 0.5 ),
+#         cutpoints ~ dnorm( 0 , 1.5 )
+#     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+# plot(precis(mcrs3, depth = 2, prob = 0.95) ) 
 # the cutpoints are not of much interet, this suggests that the diversity really isn't having a correlation?
 ```
 
@@ -154,6 +154,7 @@ prior_tox <- list(m = 1, p = 2) %>%
     ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
     return(ret)
   }) 
+hist(prior_tox$p)
 ```
 
 ### Posterior

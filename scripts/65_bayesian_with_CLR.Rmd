@@ -46,17 +46,44 @@ gtox <- ulam(
     alist(
         tox ~ dbinom( 1 , p ) ,
         logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus  + a[location] ,
-        ba ~ dnorm( 0 , 0.75),
-        bb ~ dnorm( 0 , 0.75),
-        be ~ dnorm( 0 , 0.75),
-        bf ~ dnorm( 0 , 0.75),
-        br ~ dnorm( 0 , 0.75),
+        ba ~ dnorm( 0 , 0.25),
+        bb ~ dnorm( 0 , 0.25),
+        be ~ dnorm( 0 , 0.25),
+        bf ~ dnorm( 0 , 0.25),
+        br ~ dnorm( 0 , 0.25),
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 16)
 precis(gtox, prob = 0.95)   
 plot(precis(gtox, depth = 2, prob = 0.95) )  
 # the  Ruminococcus looks more significant now
 ```
+
+```{r}
+# make this plot myself with a pre-defined range in the axis
+df <- precis(gtox,  prob = 0.95)  %>% as.tibble()
+df <- df %>%
+  mutate(variable = c('Akkermansia', 'Bacteroides','Enterococcus','Faecalibacterium','Ruminococcus'))
+#remove row number 1 (The intercept)
+df %>% 
+  ggplot(aes(x = variable, y = mean)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = `2.5%`,
+                    ymax  = `97.5%`),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-1.5, 1.5)) +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'Toxicity') +
+  ggsave('../figs/amplicon/bayesian_genera_tox_CLR.pdf', width = 5, height = 4)
+```
+
 
 ```{r}
 # maybe I can do a prior check with one real sample value for a test
@@ -102,4 +129,30 @@ gcr <- ulam(
 precis(gcr, prob = 0.95)
 plot(precis(gcr, depth = 2, prob = 0.95) )
 ```
+```{r}
+# make this plot myself with a pre-defined range in the axis
+df <- precis(gcr,  prob = 0.95)  %>% as.tibble()
+df <- df %>%
+  mutate(variable = c('Akkermansia', 'Bacteroides','Enterococcus','Faecalibacterium','Ruminococcus'))
+#remove row number 1 (The intercept)
+df %>% 
+  ggplot(aes(x = variable, y = mean)) +
+  geom_point(shape = 15,
+             size  = 4, width = 0.1,
+             position = "dodge", color="black") +
+  geom_errorbar(aes(ymin  = `2.5%`,
+                    ymax  = `97.5%`),
+                width = 0.1,
+                size  = 0.7,
+                position = "dodge", color="turquoise4") +
+  theme(axis.title = element_text(face = "bold")) +
+  xlab("Variables") + ylab("Coefficient with 95% CI") +
+  coord_flip(ylim = c(-1.5, 1.5)) +
+  geom_hline(yintercept = 0, color = "red", size = 1) +
+   theme(axis.title = element_text(size = 0)) +
+  theme(axis.text = element_text(size = 14)) +
+  labs(title = 'CR') +
+  ggsave('../figs/amplicon/bayesian_genera_cr_CLR.pdf', width = 5, height = 4)
 
+get_table_from_database('counts_ag')
+```

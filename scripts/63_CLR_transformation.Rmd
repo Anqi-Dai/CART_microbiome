@@ -10,16 +10,35 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(compositions)
 library(tidyverse)
+library(ggpubr)
 ```
+CLR works with counts, not relab. And also need to add a pseudocount
 
 ```{r}
-genus <- read_csv('../data/amplicon/stool/counts_genus_combined.csv') %>% 
-  select(-center) %>% 
-  spread(key = 'sampleid', value = 'relab', fill = 0) %>% 
-  mutate(genus = if_else(is.na(genus), 'NA',genus)) %>% 
-  column_to_rownames('genus')
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
 
-clr_res <- clr(genus) %>% 
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database('asv_annotation_blast_ag')
+cts <- get_counts_subset(meta$sampleid)
+cts_ <- cts %>% 
+  select(asv_key, sampleid, count)
+
+annot <- asv_annotation_blast_ag %>% 
+  filter(asv_key %in% cts_$asv_key)
+
+cts_all <- cts_ %>% 
+  left_join(annot %>%  select(asv_key, genus), by  = 'asv_key') %>% 
+  group_by(sampleid, genus) %>% 
+  summarise(cnt = sum(count)) %>% 
+  spread('sampleid', 'cnt', fill = 0) %>% 
+  filter(!is.na(genus)) %>% 
+  column_to_rownames('genus')
+```
+
+
+```{r}
+clr_res <- clr(cts_all + 0.5) %>% 
   as.data.frame()  %>% 
   rownames_to_column('genus') %>% 
   gather('sampleid','clr', names(.)[2]:names(.)[ncol(.)])
@@ -29,5 +48,23 @@ clr_5 <- clr_res %>%
 
 clr_5 %>% 
   write_csv('../data/amplicon/stool/counts_genus_combined_CLR.csv')
+```
+
+```{r}
+log10 <- read_csv('../data/amplicon/stool/combined_5_genera.csv') %>% 
+  gather('genus', 'log10', Akkermansia:Ruminococcus)
+
+two <- log10 %>% 
+  inner_join(clr_5)
+
+two %>% 
+  arrange(log10) %>% 
+  #filter(log10 > -5) %>% 
+  ggscatter(x = 'log10', y = 'clr', facet.by = 'genus', alpha = 0.4,
+             add = "reg.line",  # Add regressin line
+           add.params = list(color = "blue", fill = "lightgray"), # Customize line
+           conf.int = TRUE, # Add confidence interval
+           cor.coef = TRUE, # Add correlation coefficient.
+           cor.coeff.args = list(method = "pearson",  label.sep = "\n") )
 ```
 

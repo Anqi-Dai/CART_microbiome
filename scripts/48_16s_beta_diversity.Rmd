@@ -170,6 +170,11 @@ all_pheno <- bind_rows(healthy %>%
   inner_join(asv_alpha_diversity_ag %>% 
                select(path_pool, sampleid))
 
+ttt <- all_pheno %>% 
+  ungroup() %>% 
+  filter(grp == 'healthy') %>% 
+  distinct(sampleid) 
+
 # filter >0.01% in more than 10% samples
 keepa <- cts %>% 
   filter(count_relative > 0.0001) %>% 
@@ -182,8 +187,11 @@ cts_fil <- cts %>%
   select(sampleid, asv_key,count_relative ) %>% 
   spread(key = 'asv_key', value = 'count_relative', fill = 0) %>% 
   column_to_rownames('sampleid')
-
+library(vegan)
 dist_ <- vegdist(cts_fil, method = 'bray')
+eigen <- pcoa(dist_)$values$Eigenvalues
+percent_var <- signif(eigen/sum(eigen), 3)*100
+
 bc <- cmdscale(dist_, k = 2)
 
 bc %>%
@@ -194,19 +202,11 @@ bc %>%
   distinct() %>% 
   ggscatter(x = 'V1', y = 'V2', color =  'grp') +
   labs(title = 'PCOA of healthy and CART patients') +
+  xlab(paste0("PC 1 [",percent_var[1],"%]")) +
+  ylab(paste0("PC 2 [",percent_var[2],"%]")) +
   #theme_void() +
   ggsave('../figs/PCOA(bray-curtis) of healthy and CART patients.pdf')
 
-bc %>%
-  as.data.frame() %>%
-  rownames_to_column('sampleid') %>% 
-  ungroup() %>% 
-  inner_join(all_pheno) %>% 
-  distinct() %>% 
-  ggscatter(x = 'V1', y = 'V2', color =  'center') +
-  labs(title = 'PCOA of healthy and CART patients center') +
-  #theme_void() +
-  ggsave('../figs/PCOA(bray-curtis) of healthy and CART patients centetr.pdf')
  
 ```
 
@@ -227,6 +227,9 @@ cts_fil <- cts %>%
   column_to_rownames('sampleid')
 
 dist_ <- vegdist(cts_fil, method = 'bray')
+eigen <- pcoa(dist_)$values$Eigenvalues
+percent_var <- signif(eigen/sum(eigen), 3)*100
+
 bc <- cmdscale(dist_, k = 2)
 
 mp <- bc %>%
@@ -241,9 +244,11 @@ mp <- bc %>%
   mutate(pool = str_replace(pool, '_1/|_comple.+$',''))
 
 mp %>% 
-  ggscatter(x = 'V1', y = 'V2', color =  'pool') +
+  ggscatter(x = 'V1', y = 'V2', color =  'pool', size = 3) +
   labs(title = 'PCOA of CART patients') +
+  xlab(paste0("PC 1 [",percent_var[1],"%]")) +
+  ylab(paste0("PC 2 [",percent_var[2],"%]")) +
   #theme_void() +
-  ggsave('../figs/PCOA(bray-curtis) (ASV level)of CART patients_pool.pdf', width = 5, height = 6)
+  ggsave('../figs/PCOA(bray-curtis) (ASV level)of CART patients_pool.pdf', width = 9, height = 9)
 ``` 
  

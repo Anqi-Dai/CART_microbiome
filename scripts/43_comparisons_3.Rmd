@@ -232,6 +232,17 @@ cmds <- tibble(
 taxa <- read_tsv('../data/shotgun_output/metaphlan/merged_abundance_table.txt')  %>% 
   rename_all(funs(str_replace(., '_profile$','')))
 
+keeptaxa <- taxa %>% 
+  filter(cpm > 50) %>%
+  ungroup() %>% 
+  count(pw) %>% 
+  filter(n > floor(nrow(simple) * 0.25)) %>% 
+  pull(pw)
+
+cts_fil <- pcts %>% 
+  filter(pw %in% keeppw) %>% 
+  spread('sampleid', 'cpm', fill = 0)
+
 tcts <- sub_phenos %>% 
   map(~ pull(.data = ., fid) ) %>% 
   imap(~ taxa %>% select(clade_name, matches(.x)) %>% 

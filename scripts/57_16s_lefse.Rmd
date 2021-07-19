@@ -27,10 +27,10 @@ cts_ <- cts %>%
 
 annot <- asv_annotation_blast_ag %>% 
   filter(asv_key %in% cts_$asv_key) %>% 
-  mutate(ordr =  if_else(ordr == '', str_glue('of_class_{class}'), ordr),
-         family =  if_else(family == '', str_glue('of_order_{ordr}'), family),
-         genus =  if_else(genus == '', str_glue('of_family_{family}'), genus),
-         species =  if_else(species == '', str_glue('of_genus_{genus}'), species)) %>% 
+  mutate(ordr =  if_else(is.na(ordr), str_glue('unknown_of_class_{class}'), ordr),
+         family =  if_else(is.na(family), str_glue('unknown_of_order_{ordr}'), family),
+         genus =  if_else(is.na(genus) , str_glue('unknown_of_family_{family}'), genus),
+         species =  if_else(is.na(species) , str_glue('unknown_of_genus_{genus}'), species)) %>% 
   mutate(taxa_asv = str_glue('k__{kingdom}|p__{phylum}|c__{class}|o__{ordr}|f__{family}|g__{genus}|s__{species}|a__{asv_key}'))
 
 cts_all <- cts_ %>% 
@@ -93,7 +93,7 @@ cmds <- tibble(
   fns = fns
 ) %>% 
   mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1  -u 2 -o 1000000   ')) %>% 
-  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
+  mutate(run_cmd = str_glue('run_lefse.py -l  4 {fns}.in  {fns}.res')) %>% 
   mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.pdf --format pdf  --feature_font_size 4 --width 10 --dpi 300 --title {fns}')) %>% 
   mutate(clado_cmd = str_glue('plot_cladogram.py {fns}.res {fns}_clado.pdf  --label_font_size 4 --dpi 300 --format pdf --title {fns}')) %>% 
   select(-fns) %>% 
@@ -104,6 +104,11 @@ cmds <- tibble(
 
 ```
 
+```{r}
+# run in terminal:
+# bash /Users/daia1/projects/CART_microbiome/data/amplicon/lefse/lefse_run_cmd_taxa.sh
+```
+  
   
 ```{r}
 # to see the relative abundance of those taxa 
