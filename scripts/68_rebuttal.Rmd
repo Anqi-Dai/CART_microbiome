@@ -3,9 +3,12 @@ title: "CART rebuttal"
 author: "Anqi Dai"
 date: "`r Sys.Date()`"
 output:
+  word_document:
+    toc: yes
+    toc_depth: '3'
   html_document:
-    toc: true
-    toc_float: true
+    toc: yes
+    toc_float: yes
     toc_depth: 3
     code_folding: hide
 ---
@@ -379,18 +382,18 @@ percent_var <- signif(eigen/sum(eigen), 3)*100
 
 bc <- cmdscale(dist_, k = 2)
 
-bc %>%
+asv_pcoa <- bc %>%
   as.data.frame() %>%
   rownames_to_column('sampleid') %>% 
   ungroup() %>% 
   inner_join(all_pheno) %>% 
   distinct() %>% 
   ggscatter(x = 'V1', y = 'V2', color =  'grp') +
-  labs(title = 'PCOA of healthy and CART patients') +
+  labs(title = 'PCOA of healthy and CART patients at ASV level') +
   xlab(paste0("PC 1 [",percent_var[1],"%]")) +
   ylab(paste0("PC 2 [",percent_var[2],"%]")) +
   #theme_void() +
-  ggsave('../figs/PCOA(bray-curtis) of healthy and CART patients.pdf')
+  ggsave('../figs/PCOA(bray-curtis) of healthy and CART patients_asv_level.pdf')
 ```
 
 We agree a PCOA is a better visualization of the community difference between the healthy and the CART cohort. The PCOA is done at ASV level with same filtering threshold as above in the LEfSe and the Bray-Curtis distance was used. As illustrated in the plot, the CART and healthy cohort's microbiome is quite different.
@@ -449,14 +452,130 @@ Thank reviewer for bringing up this point. We've created a github page to displa
  
 ```{r}
 # beta diversity at genus level but a PCOA between healthy and the CART
-genus <- read_csv('../data/amplicon/stool/counts_genus_combined.csv')
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database("healthy_volunteers_ag")
+get_table_from_database("asv_alpha_diversity_ag")
+stb <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
 
-keep <- genus %>% 
+healthy <- healthy_volunteers_ag %>% 
+  inner_join(asv_alpha_diversity_ag, by = c("sampleid", "oligos_id")) 
+cts <- get_counts_subset(c(stb$sampleid, healthy %>% pull(sampleid)))
+
+# a total of 75 samples  
+nsamp <- cts %>% 
+  distinct(sampleid) %>% 
+  nrow
+
+all_pheno <- bind_rows(healthy %>% 
+  select(sampleid) %>% 
+  mutate(grp = 'healthy', center = 'healthy'),
+  stb %>% select(sampleid, center)  %>% 
+    mutate(grp = 'CART') %>% 
+    select(sampleid, grp, center)
+  ) %>% 
+  ungroup %>% 
+  inner_join(asv_alpha_diversity_ag %>% 
+               select(path_pool, sampleid))
+
+joined <- cts %>% 
+  left_join(asv_annotation_blast_ag %>% select(asv_key, genus)) %>% 
+  group_by(sampleid, genus) %>% 
+  summarise(relab = sum(count_relative)) %>% 
+  ungroup()
+
+keepg <- joined %>% 
   filter(relab > 0.0001) %>% 
   count(genus) %>% 
-  filter(n > floor(nsamp * 0.2)) %>% 
+  filter(n > floor(nsamp * 0.25)) %>% 
   filter(!is.na(genus)) %>% 
   pull(genus) 
+
+cts_fil <- joined %>% 
+  filter(genus %in% keepg) %>% 
+  spread('genus', 'relab', fill = 0) %>% 
+  column_to_rownames('sampleid')
+
+library(vegan)
+dist_ <- vegdist(cts_fil, method = 'bray')
+eigen <- pcoa(dist_)$values$Eigenvalues
+percent_var <- signif(eigen/sum(eigen), 3)*100
+bc <- cmdscale(dist_, k = 2)
+bc %>%
+  as.data.frame() %>%
+  rownames_to_column('sampleid') %>% 
+  ungroup() %>% 
+  inner_join(all_pheno) %>% 
+  distinct(sampleid, .keep_all = T) %>% 
+  ggscatter(x = 'V1', y = 'V2', color =  'grp') +
+  labs(title = 'PCOA of healthy and CART patients at genus level') +
+  xlab(paste0("PC 1 [",percent_var[1],"%]")) +
+  ylab(paste0("PC 2 [",percent_var[2],"%]")) +
+  #theme_void() +
+  ggsave('../figs/PCOA(bray-curtis) of healthy and CART patients_genus_level.pdf')
+
+asv_pcoa
+
+```
+- Thank reviewer for bringing up this point. As shown by the above two PCOA, one at genus level, one at ASV level, with same filtering threshold, the healthy and the CART cohort look about the same level of separation. The result is robust to this choice. 
+
+## Major point 3
+
+**l. 580-581 log relative abundances have been use to evaluate associations; this ignores the compositionality effect, which is commonly treated by using Aitchison transformations (e.g. CLR) in microbiome studies. Ignoring compositionality has potentially notable impact on the analysis outcomes. It would be essential to check that the overall conclusions are not affected by this. Using clr transformed abundances would be more in line with the current practices than using log relative abundance.**
+
+```{r}
+# compare between the transformed counts of CLR and log10
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+
+library(vdbR)
+connect_database('~/dbConfig.txt')
+cts <- get_counts_subset(meta$sampleid)
+cts_ <- cts %>% 
+  select(asv_key, sampleid, count)
+
+annot <- asv_annotation_blast_ag %>% 
+  filter(asv_key %in% cts_$asv_key)
+
+# CLR transformation works at the counts level
+cts_all <- cts_ %>% 
+  left_join(annot %>%  select(asv_key, genus), by  = 'asv_key') %>% 
+  group_by(sampleid, genus) %>% 
+  summarise(cnt = sum(count)) %>% 
+  spread('sampleid', 'cnt', fill = 0) %>% 
+  filter(!is.na(genus)) %>% 
+  column_to_rownames('genus')
+
+clr_res <- compositions::clr(cts_all + 0.5) %>% 
+  as.data.frame()  %>% 
+  rownames_to_column('genus') %>% 
+  gather('sampleid','clr', names(.)[2]:names(.)[ncol(.)])
+
+clr_5 <- clr_res %>% 
+  filter(genus %in% c('Faecalibacterium','Ruminococcus','Akkermansia','Bacteroides','Enterococcus')) 
+
+# my log10 tranformation results
+log10 <- read_csv('../data/amplicon/stool/combined_5_genera.csv') %>% 
+  gather('genus', 'log10', Akkermansia:Ruminococcus)
+
+# compare the two
+two <- log10 %>% 
+  inner_join(clr_5)
+
+two %>% 
+  arrange(log10) %>% 
+  #filter(log10 > -5) %>% 
+  ggscatter(x = 'log10', y = 'clr', facet.by = 'genus', alpha = 0.4,
+            xlab = 'log10 transformation counts', ylab = 'CLR transformation counts',
+            title = 'Scatter plot and Pearson correlation' ,
+             add = "reg.line",  # Add regressin line
+           add.params = list(color = "blue", fill = "lightgray"), # Customize line
+           conf.int = TRUE, # Add confidence interval
+           cor.coef = TRUE, # Add correlation coefficient.
+           cor.coeff.args = list(method = "pearson",  label.sep = "\n") )
 ```
 
+- Thank reviewer for pointing this out. We visualized the Pearson correlation between the CLR and the log10 transformed counts for the 5 genera that we put into the model. As depicted in the above plot, the correlation is about 1 for all of them. Therefore the log10 transformation is fine with out purpose.
 
+## Minor point 1
+
+**The Bayesian analysis is interesting and it is good to see that this methodology is starting to be adopted also in this research area but the analysis does not mention covariates. It the assumption that the groups are sufficiently homogeneous so that no covariates need to be considered in the analysis? **
