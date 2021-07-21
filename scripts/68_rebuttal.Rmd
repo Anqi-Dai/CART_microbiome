@@ -1,0 +1,462 @@
+---
+title: "CART rebuttal"
+author: "Anqi Dai"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F)
+```
+
+```{r}
+library(vegan)
+library(ggpubr)
+library(tidyverse)
+library(grid)
+library(cowplot)
+```
+
+# Reivewer 1
+
+## Major point 2
+
+**LEfSe is biased towards the identification of rare taxa and these rare taxa may be present in only one or two individuals. For this reason, please define parameters for minimum relative abundance and minimum number of patients in which taxa are seen. Please provide the relative abundance of the taxa of interest and the number of patients in which they are observed that are differentially abundant between groups.**
+
+```{r}
+# sort out the asv counts table and also do filtering (need to have all taxa levels)
+meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database('asv_annotation_blast_ag')
+cts <- get_counts_subset(meta$sampleid)
+
+cts_ <- cts %>% 
+  select(asv_key, sampleid, count_relative) %>% 
+  spread(key = 'sampleid', value = 'count_relative', fill = 0) 
+
+annot <- asv_annotation_blast_ag %>% 
+  filter(asv_key %in% cts_$asv_key) %>% 
+  mutate(ordr =  if_else(is.na(ordr), str_glue('unknown_of_class_{class}'), ordr),
+         family =  if_else(is.na(family), str_glue('unknown_of_order_{ordr}'), family),
+         genus =  if_else(is.na(genus) , str_glue('unknown_of_family_{family}'), genus),
+         species =  if_else(is.na(species) , str_glue('unknown_of_genus_{genus}'), species)) %>% 
+  mutate(taxa_asv = str_glue('k__{kingdom}|p__{phylum}|c__{class}|o__{ordr}|f__{family}|g__{genus}|s__{species}|a__{asv_key}'))
+
+cts_all <- cts_ %>% 
+  full_join(annot %>%  select(asv_key, taxa_asv), by  = 'asv_key') %>% 
+  select(-asv_key)  %>% 
+  gather('sampleid', 'relab', names(.)[1]:names(.)[ncol(.)-1]) %>% 
+  left_join(meta %>% select(sampleid, cr_d100, toxicity), by = 'sampleid')
+
+# the asv to keep
+# keep the asvs that show up in at least 25% of the samples
+keepg <- cts_all %>% 
+  filter(relab > 0.0001) %>%
+  ungroup() %>% 
+  count(taxa_asv) %>% 
+  filter(n > floor(nrow(meta) * 0.25)) %>% 
+  pull(taxa_asv)
+ 
+cts_fil <- cts_all %>% 
+  filter(taxa_asv %in% keepg) %>% 
+  spread('sampleid', 'relab', fill = 0)
+```
+
+```{r}
+# the pheno label for the samples
+pheno <- meta %>% 
+  select(center, cr_d100:crs, icans, sampleid) %>% 
+  gather('pheno', 'value', cr_d100:icans) 
+
+all_sub_pheno <- pheno %>% 
+  split(., list(.$pheno)) %>% 
+  purrr::imap(~ filter(.data = ., value != 'not_assessed'))
+
+tpheno <- all_sub_pheno %>% 
+  imap(function(.x, .y){
+    select(.data = .x, value) %>% 
+      t() %>% write.table(str_glue('../data/amplicon/lefse/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+  })
+
+tcts <- all_sub_pheno %>% 
+  map(~ pull(.data = ., sampleid) ) %>% 
+  imap(~ cts_fil %>% select(taxa_asv, matches(.x)) %>%  write_tsv(str_glue('../data/amplicon/lefse/{.y}_asv_tcts.tsv'))) 
+```
+
+
+```{bash}
+cat ../data/amplicon/lefse/pull_toxicity.txt ../data/amplicon/lefse/toxicity_asv_tcts.tsv > ../data/amplicon/lefse/pull_toxicity_asv_tcts.tsv
+cat ../data/amplicon/lefse/pull_cr_d100.txt ../data/amplicon/lefse/cr_d100_asv_tcts.tsv > ../data/amplicon/lefse/pull_cr_d100_asv_tcts.tsv 
+```
+
+
+```{r}
+fns <- list.files('../data/amplicon/lefse/', pattern = 'pull.*_asv_tcts.tsv$')
+
+cmds <- tibble(
+  fns = fns
+) %>% 
+  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1  -u 2 -o 1000000   ')) %>% 
+  mutate(run_cmd = str_glue('run_lefse.py -l  4 {fns}.in  {fns}.res')) %>% 
+  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.pdf --format pdf  --feature_font_size 4 --width 10 --dpi 300 --title {fns}')) %>% 
+  mutate(clado_cmd = str_glue('plot_cladogram.py {fns}.res {fns}_clado.pdf  --label_font_size 4 --dpi 300 --format pdf --title {fns}')) %>% 
+  select(-fns) %>% 
+  gather() %>% 
+  select(value) %>% 
+  write_csv('../data/amplicon/lefse/lefse_run_cmd_taxa.sh', col_names = F)
+  
+```
+
+```{r}
+# run in terminal:
+# bash /Users/daia1/projects/CART_microbiome/data/amplicon/lefse/lefse_run_cmd_taxa.sh
+```
+  
+```{r}
+# redo the resulted bar plot of the lefse in ggplot
+# the input : lefse res files
+fns <- list.files('../data/amplicon/lefse/', pattern = 'pull.*_asv_tcts.tsv.res$', full.names = T)
+
+# join all of the tables feature together
+feature <- fns %>% 
+  set_names(fns) %>% 
+  map(~ read_tsv(., col_names = c('feature','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  bind_rows(.id = 'group') %>% 
+  mutate(group = str_replace(group, '../data/amplicon/lefse//pull_','')) %>% 
+  mutate(group = str_replace(group, '_asv_tcts.tsv.res$','')) 
+
+# change the "N" direction to be minus score
+feature <- bind_rows(
+  feature %>% 
+    split(.$direction) %>% 
+    pluck('no') %>% 
+    mutate(score = -score),
+  feature %>% 
+    split(.$direction) %>% 
+    pluck('yes')  
+) %>% 
+  arrange(group, feature, score) %>% 
+  mutate(feature = str_replace_all(feature, '^.+\\.', ''))
+```
+  
+```{r}
+all_title_fs <- 20
+axis_text_fs <- 16
+
+CR <- feature %>% 
+  filter(group == 'cr_d100') %>% 
+  ggplot(aes(x = reorder(feature, score), y = score, fill = direction)) +
+            geom_bar( stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#925E9F', '#42B540'))  +
+            scale_fill_manual(values = c('#925E9F', '#42B540')) +
+            theme_classic() +
+            theme(axis.title.y  = element_blank(), 
+                  plot.title = element_text(size=all_title_fs),
+                  axis.title.x = element_text(size=axis_text_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position='bottom') +
+            labs(title = str_glue('Response to CR') ,
+                 y = 'Score')
+
+tox <- feature %>% 
+  filter(group == 'toxicity') %>% 
+  ggplot(aes(x = reorder(feature, score), y = score, fill = direction)) +
+            geom_bar(stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#0099B4', '#AD002A'))  +
+            scale_fill_manual(values = c('#0099B4', '#AD002A')) +
+            theme_classic() +
+            theme(axis.title.y  = element_blank(), 
+                  axis.title.x = element_text(size=axis_text_fs),
+                  plot.title = element_text(size=all_title_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position="bottom") +
+            labs(title = str_glue('Response to Toxicity') ,
+                 y = 'Score')
+
+g <- plot_grid(CR,tox,  
+          nrow = 2, 
+          align = 'hv',
+          axis = 'b')  +
+  ggsave('../figs/amplicon/16s_lefse_combined.pdf', device = 'pdf', height = 15, width = 15)
+
+g
+```
+  
+  
+```{r}
+# to see the relative abundance of those taxa 
+# to get the top and bottom three taxa of the lefse results
+res <- list.files('../data/amplicon/lefse/', pattern = 'asv_tcts.tsv.res$', full.names = T)
+
+# gather the species level taxa in the lefse significant results
+res_all <- res %>% 
+  set_names(res) %>% 
+  map(~ read_tsv(., col_names = c('feature','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  keep(~ nrow(.) > 0) %>% 
+  bind_rows(.id = 'res') %>% 
+  mutate(res = str_replace(res, '^.+//',''),
+         res = str_replace(res, '_asv.+$',''))  %>% 
+  rename(grp = res) %>% 
+  filter(grp %in% c('pull_cr_d100','pull_toxicity')) %>% 
+  mutate(feature = str_replace_all(feature, '\\.','\\|')) %>% 
+  #split(., list(.$grp, .$direction)) %>% 
+  #map_dfr(~ top_n(x = ., n = 4, wt = score) %>% arrange(-score)) %>% 
+  # filter(str_detect(feature, 's__.+$')) %>% 
+  # filter(!str_detect(feature, 'a__.+$')) %>% 
+  filter(str_detect(feature, 'g__.+$')) %>% 
+  filter(!str_detect(feature, 's__.+$')) %>% 
+  mutate(feature = str_replace(feature, '^.+g__','')) %>% 
+  mutate(feature = str_replace(feature, '_Clostridium_', '[Clostridium]')) %>% 
+  ungroup()
+
+
+# plot the relab of those taxa (at species level) in boxplot
+# get the species counts of the sampels
+cts_spp <- cts_ %>% 
+  full_join(annot %>%  select(asv_key, species), by  = 'asv_key') %>% 
+  select(-asv_key)  %>% 
+  gather('sampleid', 'relab', names(.)[1]:names(.)[ncol(.)-1]) %>% 
+  group_by(sampleid, species) %>% 
+  summarise(Relab = sum(relab)) %>% 
+  select(sampleid, species, Relab) %>% 
+  left_join(meta %>% select(sampleid, cr_d100, toxicity), by = 'sampleid') %>% 
+  ungroup()
+
+cts_genus <- cts_ %>% 
+  full_join(annot %>%  select(asv_key, genus), by  = 'asv_key') %>% 
+  select(-asv_key)  %>% 
+  gather('sampleid', 'relab', names(.)[1]:names(.)[ncol(.)-1]) %>% 
+  group_by(sampleid, genus) %>% 
+  summarise(Relab = sum(relab)) %>% 
+  select(sampleid, genus, Relab) %>% 
+  left_join(meta %>% select(sampleid, cr_d100, toxicity), by = 'sampleid') %>% 
+  ungroup()
+
+joined <- cts_genus %>% 
+  inner_join(res_all, by = c('genus' = 'feature'))
+
+# finally I can do the plotting
+
+joined  %>%
+  filter(grp == 'pull_cr_d100') %>% 
+  ggboxplot(x = 'cr_d100', y = 'Relab', add = 'jitter', title = 'Outcome: cr_d100') +
+  facet_wrap(direction ~ genus, scales="free_y") +
+  ggsave('../figs/amplicon/lefse_taxa_crd100.pdf', width = 15, height = 13)
+ 
+
+joined  %>%
+  filter(grp == 'pull_toxicity') %>% 
+  ggboxplot(x = 'toxicity', y = 'Relab', add = 'jitter', title = 'Outcome: toxicity') +
+  facet_wrap(direction ~ genus, scales="free_y") +
+  ggsave('../figs/amplicon/lefse_taxa_toxicity.pdf', width = 10, height = 13)
+```
+
+- Thank you reivewer for making this point. Previously the abundance filtering threshold for the ASV was set at 0 and prevalence threshold at 10%. The abundance threshold was set at 0 since I assumed I could be more lenient as the LEfSe was done at ASV level. Thus very rare taxa showed up in the results. Per the reviewer's comment, I've changed the abundance threshold to be at 0.01% and prevalence threshold at 25% (This is a small cohort with 45 samples). 
+
+- A lot of more commenly known taxa appeared in the updated results, and for display's purpose, bar plot only showed taxa with LDA score above 4. Moreover, as represented in the boxplot, the significant taxa (at genus level) look quite abundant.
+
+- A big portion of the results are the same in the two outcomes. It doesn't quite help with making association conclusion, but it points us to the next step of selecting important genera for modeling.
+
+## Major point 5
+
+**Were controls used in this study--positive controls with known microbial consortia and negative reagent controls in order to account for potential contamination and to normalize abundance across batches? This is particularly important because several of the taxa identified using LEfSe analsyis could have represented contamination, yet we do not know their relative abundance and whether they were present in small numbers of reads or not. Were samples processed in batches and were batch effects taken into account?**
+
+```{r}
+get_table_from_database("asv_alpha_diversity_ag")
+# a pcoa at asv level for only M and P
+stb <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+
+all_pheno <-  stb %>% select(sampleid, center)  %>% 
+    mutate(grp = 'CART') %>% 
+    select(sampleid, grp, center) %>% 
+  ungroup %>% 
+  inner_join(asv_alpha_diversity_ag %>% 
+               select(path_pool, sampleid))
+
+cts <- get_counts_subset(c(stb$sampleid))
+
+nsamp <- nrow(stb)
+
+keepa <- cts %>% 
+  filter(count_relative > 0.0001) %>% 
+  count(asv_key) %>% 
+  filter(n > floor(nsamp * 0.25)) %>% 
+  pull(asv_key)
+
+cts_fil <- cts %>% 
+  filter(asv_key %in% keepa) %>% 
+  select(sampleid, asv_key,count_relative ) %>% 
+  spread(key = 'asv_key', value = 'count_relative', fill = 0) %>% 
+  column_to_rownames('sampleid')
+
+dist_ <- vegdist(cts_fil, method = 'bray')
+eigen <- pcoa(dist_)$values$Eigenvalues
+percent_var <- signif(eigen/sum(eigen), 3)*100
+
+bc <- cmdscale(dist_, k = 2)
+
+mp <- bc %>%
+  as.data.frame() %>%
+  rownames_to_column('sampleid') %>% 
+  ungroup() %>% 
+  inner_join(all_pheno) %>% 
+  distinct(sampleid, .keep_all = T)  %>% 
+  mutate(pool = str_extract(path_pool, 'Sample.+/')) %>% 
+  mutate(pool = str_replace(pool, 'Sample_','')) %>% 
+  mutate(pool = if_else(str_detect(pool, 'IGO'), str_extract(pool, 'IGO.+$'), pool)) %>% 
+  mutate(pool = str_replace(pool, '_1/|_comple.+$',''))
+
+mp %>% 
+  ggscatter(x = 'V1', y = 'V2', color =  'pool', size = 3) +
+  labs(title = 'PCOA of CART patients') +
+  xlab(paste0("PC 1 [",percent_var[1],"%]")) +
+  ylab(paste0("PC 2 [",percent_var[2],"%]")) +
+  #theme_void() +
+  ggsave('../figs/PCOA(bray-curtis) (ASV level)of CART patients_pool.pdf', width = 9, height = 9)
+``` 
+Controls were not used in the study. Several important taxa identified by LefSe could be statistical artefact due to the lenient filtering threshold. In terms of batch effects, as shown in the above scatter plot, 45 samples came from 13 different sequencing batches, and they look well mixed. Therefore I would conclude that batch effects wouldn't be a concern. Plus, in the following modeling step, center from which the sample was collected is incorporated as a covariet.
+
+## Major point 13
+
+**I would prefer to see an MDS/PCOA visualization instead of Figure 2C boxplots for beta-diversity. This helps much more with understanding how different communities are and what variability exists within communities** 
+
+```{r}
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database("healthy_volunteers_ag")
+get_table_from_database("asv_alpha_diversity_ag")
+stb <- read_csv('../data/amplicon/stool/combined_2_meta.csv')
+
+healthy <- healthy_volunteers_ag %>% 
+  inner_join(asv_alpha_diversity_ag, by = c("sampleid", "oligos_id")) 
+cts <- get_counts_subset(c(stb$sampleid, healthy %>% pull(sampleid)))
+
+# a total of 75 samples  
+nsamp <- cts %>% 
+  distinct(sampleid) %>% 
+  nrow
+
+all_pheno <- bind_rows(healthy %>% 
+  select(sampleid) %>% 
+  mutate(grp = 'healthy', center = 'healthy'),
+  stb %>% select(sampleid, center)  %>% 
+    mutate(grp = 'CART') %>% 
+    select(sampleid, grp, center)
+  ) %>% 
+  ungroup %>% 
+  inner_join(asv_alpha_diversity_ag %>% 
+               select(path_pool, sampleid))
+
+
+# filter >0.01% in more than 25% samples
+keepa <- cts %>% 
+  filter(count_relative > 0.0001) %>% 
+  count(asv_key) %>% 
+  filter(n > floor(nsamp * 0.25)) %>% 
+  pull(asv_key)
+
+cts_fil <- cts %>% 
+  filter(asv_key %in% keepa) %>% 
+  select(sampleid, asv_key,count_relative ) %>% 
+  spread(key = 'asv_key', value = 'count_relative', fill = 0) %>% 
+  column_to_rownames('sampleid')
+
+library(vegan)
+dist_ <- vegdist(cts_fil, method = 'bray')
+eigen <- pcoa(dist_)$values$Eigenvalues
+percent_var <- signif(eigen/sum(eigen), 3)*100
+
+bc <- cmdscale(dist_, k = 2)
+
+bc %>%
+  as.data.frame() %>%
+  rownames_to_column('sampleid') %>% 
+  ungroup() %>% 
+  inner_join(all_pheno) %>% 
+  distinct() %>% 
+  ggscatter(x = 'V1', y = 'V2', color =  'grp') +
+  labs(title = 'PCOA of healthy and CART patients') +
+  xlab(paste0("PC 1 [",percent_var[1],"%]")) +
+  ylab(paste0("PC 2 [",percent_var[2],"%]")) +
+  #theme_void() +
+  ggsave('../figs/PCOA(bray-curtis) of healthy and CART patients.pdf')
+```
+
+We agree a PCOA is a better visualization of the community difference between the healthy and the CART cohort. The PCOA is done at ASV level with same filtering threshold as above in the LEfSe and the Bray-Curtis distance was used. As illustrated in the plot, the CART and healthy cohort's microbiome is quite different.
+
+## Major point 14
+
+**Why was a Bayesian statistical approach used? I would like to either see “standard” statistical approaches or have a strong justification for why this is more appropriate and the other methods are not**
+
+- Using Bayesian approach, we are able to obtain the posterior distribution of the coefficients, which retains the uncertainty of the coefficient estimates, and also do posterior predictive check to quantify the impact of the coefficients (as shown in the Fig 2H & J). The odds ratio in logistic regression is hard to interpretate.   
+
+## Major point 15
+
+**Why was Ruminococcus chosen but not the Clostridium or Fusobacterium genera chosen for analysis in association with outcomes? The results seem disjointed and do not create a story to explain why the prior results are being ignored here. Why was Ruminococcus not observed in LEfSe for example?**
+
+As mentioned in the above reply, rare taxa's apprearance such as Fusobacterium may just be statistical artefact due to the lenient filtering threshold. When the thresholds have been updated, Ruminococcus does show up and turn out to be quite significant with LDA score above 4 with taxa level spanning from family to species. 
+
+## Major point 17
+
+**Please indicate when 16S sequencing results were used in analyses versus when shotgun sequencing was used. It is unclear why 16S was used for taxonomic results when shotgun sequencing was available for all of the samples as well. In addition, please include the median read sizes for each and the range of sizes. More data about the sequencing reads are needed.**
+
+- 16s sequencing data was used in looking at the compositions, alpha, beta diversity, LefSe analysis and the Bayesian modeling, while shotgun data was used in LefSe analysis with the taxa and pathway abundance data.
+
+- During the progession of the project, the 16s data was obtained sooner, which was why we did the major analysis with 16s data.
+
+```{r}
+# for the read count of the 16s samples after preprocessing
+cts <- get_counts_subset(c(stb$sampleid))
+
+sample_counts <- cts %>% 
+  distinct(sampleid, count_total)
+
+summary(sample_counts$count_total)
+```
+
+Thank reviewer for reminding us to add more details of the sequencing reads. For 16s data, the median read size is 50788 and the range is from 7041 to 93953. For the shotgun data, 
+
+
+## Minor point 17
+
+**Figure 2: Are Ruminococcus/Bacteroides “low” and “high” relative abundance determined according to the median abundance? Or some other way?**
+
+
+
+
+# Reviewer 2
+
+## Major point 1
+
+**Code availability statement does list names of software packages that have been used but does not provide any information on the code that implements the analyses included in this manuscript. It also seems unlikely that the actual code would have used as few packages than what has been mentioned in the Methods. The source code for the actual analyses of this manuscript has not been provided despite generally mentioning some external open source algorithms and software by name. The standard way of providing reproducible analysis source code is either as a supplementary zip file or as an online repository (such as Github), associated with permanent DOI (e.g. through Zenodo). Without the code it is not possible to assess the workflow details or assess the robustness of the workflows to varying methodological choices. This is concern in particular due to the other questions related to methodology (see below).**
+
+Thank reviewer for bringing up this point. We've created a github page to display the code and the resulted figures. The address is: https://vdblab.github.io/CART_and_microbiome/
+
+## Major point 2
+
+**520-521: beta diversity has been calculated at genus level; the beta diversity is often calculated using the finest (ASV) resolution in order to use maximal information in the data, and in many cases this can have remarkable impact on the results. Are the results and conclusions robust to this choice?**
+ 
+```{r}
+# beta diversity at genus level but a PCOA between healthy and the CART
+genus <- read_csv('../data/amplicon/stool/counts_genus_combined.csv')
+
+keep <- genus %>% 
+  filter(relab > 0.0001) %>% 
+  count(genus) %>% 
+  filter(n > floor(nsamp * 0.2)) %>% 
+  filter(!is.na(genus)) %>% 
+  pull(genus) 
+```
+
+

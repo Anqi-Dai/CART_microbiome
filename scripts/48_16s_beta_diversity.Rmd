@@ -179,7 +179,7 @@ ttt <- all_pheno %>%
 keepa <- cts %>% 
   filter(count_relative > 0.0001) %>% 
   count(asv_key) %>% 
-  filter(n > floor(nsamp * 0.1)) %>% 
+  filter(n > floor(nsamp * 0.25)) %>% 
   pull(asv_key)
 
 cts_fil <- cts %>% 
@@ -217,7 +217,7 @@ cts <- get_counts_subset(c(stb$sampleid))
 keepa <- cts %>% 
   filter(count_relative > 0.0001) %>% 
   count(asv_key) %>% 
-  filter(n > floor(nsamp * 0.1)) %>% 
+  filter(n > floor(nsamp * 0.25)) %>% 
   pull(asv_key)
 
 cts_fil <- cts %>% 
