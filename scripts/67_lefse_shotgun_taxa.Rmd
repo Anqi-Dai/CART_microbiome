@@ -30,27 +30,32 @@ all_sub_pheno %>%
 ```
 
 ```{r}
-taxa <- read_tsv('../data/shotgun_output/metaphlan/merged_abundance_table.txt')  %>% 
-  rename_all(funs(str_replace(., '_profile$',''))) %>% 
+taxa <- read_delim('../data/shotgun_output/metaphlan/merged_abundance_table_metaphlan3.txt', delim = '\t', skip = 1)  %>% 
+  rename_all(funs(str_replace(., '_metaphlan3_profile$',''))) %>% 
   filter(str_detect(clade_name, 's__.+$')) %>% 
   select(- NCBI_tax_id) %>% 
   gather('sampleid', 'relab', names(.)[2]:names(.)[ncol(.)]) %>% 
   filter(sampleid %in% simple$fid)
 
+cts <- read_delim('../data/shotgun_output/metaphlan/merged_abundance_table_metaphlan3.txt', delim = '\t', skip = 1)  %>% 
+  rename_all(funs(str_replace(., '_metaphlan3_profile$',''))) %>% 
+  #filter(str_detect(clade_name, 's__.+$')) %>% 
+  select(- NCBI_tax_id)
+
 keeptaxa <- taxa %>% 
-  filter(relab > 0.05) %>%
+  filter(relab > 0.0001) %>%
   ungroup() %>% 
   count(clade_name) %>% 
   filter(n > floor(nrow(simple) * 0.25)) %>% 
   pull(clade_name)
 
 cts_fil <- taxa %>% 
-  filter(clade_name %in% keeptaxa) %>% 
+  #filter(clade_name %in% keeptaxa) %>% 
   spread('sampleid', 'relab', fill = 0)
   
 all_tcts <- all_sub_pheno %>% 
   map(~ pull(.data = ., fid) ) %>% 
-  imap(~ cts_fil %>% select(clade_name, matches(.x)) %>% 
+  imap(~ cts %>% select(clade_name, matches(.x)) %>% 
          write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_tcts.tsv')))
 
 ```
@@ -76,7 +81,4 @@ cmds <- tibble(
   select(value) %>% 
   write_csv('../data/shotgun_output/humann3/lefse_run_cmd_taxa.sh', col_names = F)
 
-connect_database('~/dbConfig.txt')
-get_table_from_database('asv_alpha_diversity_ag')
-list_table_from_database('asv')
 ```

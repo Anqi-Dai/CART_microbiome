@@ -150,7 +150,7 @@ feature <- bind_rows(
   mutate(feature = str_replace_all(feature, '^.+\\.', ''))
 ```
   
-```{r}
+```{r fig.height = 13, fig.width = 8, fig.align = "center"}
 all_title_fs <- 20
 axis_text_fs <- 16
 
@@ -186,9 +186,10 @@ tox <- feature %>%
             labs(title = str_glue('Response to Toxicity') ,
                  y = 'Score')
 
-g <- plot_grid(CR,tox,  
+g <- cowplot::plot_grid(CR,tox,  
           nrow = 2, 
           align = 'hv',
+          rel_heights = c(1.8,1.2),
           axis = 'b')  +
   ggsave('../figs/amplicon/16s_lefse_combined.pdf', device = 'pdf', height = 15, width = 15)
 
@@ -328,6 +329,7 @@ mp %>%
   #theme_void() +
   ggsave('../figs/PCOA(bray-curtis) (ASV level)of CART patients_pool.pdf', width = 9, height = 9)
 ``` 
+
 Controls were not used in the study. Several important taxa identified by LefSe could be statistical artefact due to the lenient filtering threshold. In terms of batch effects, as shown in the above scatter plot, 45 samples came from 13 different sequencing batches, and they look well mixed. Therefore I would conclude that batch effects wouldn't be a concern. Plus, in the following modeling step, center from which the sample was collected is incorporated as a covariet.
 
 ## Major point 13
@@ -425,19 +427,53 @@ cts <- get_counts_subset(c(stb$sampleid))
 sample_counts <- cts %>% 
   distinct(sampleid, count_total)
 
-summary(sample_counts$count_total)
+#summary(sample_counts$count_total)
 ```
 
-Thank reviewer for reminding us to add more details of the sequencing reads. For 16s data, the median read size is 50788 and the range is from 7041 to 93953. For the shotgun data, 
+```{r}
+# read depth of the shotgun reads 
+kneaddata_logs <- list.files('../data/log/', '_knead.log$', full.names = T)
 
+knead <- kneaddata_logs %>% 
+  set_names(kneaddata_logs) %>% 
+  map(~ suppressWarnings(read_table(., col_names = F, col_types = 'c')) %>% 
+        rename(content = names(.)[1]) %>% 
+        filter(str_detect(content, 'Total reads after merging results from multiple databases')) %>% 
+        transmute(knead_num = str_extract(content, 'Total reads after merging results from multiple databases.+$')) %>% 
+        mutate(knead_num = as.numeric(str_replace(knead_num,'^.+: ',''))) %>% 
+        head(1)) %>% 
+  bind_rows(.id = 'sampleid') %>% 
+  mutate(sampleid = str_replace(sampleid, '../data/log//',''),
+         sampleid = str_replace(sampleid, '_knead.log',''))
+
+#summary(knead$knead_num)
+```
+
+
+Thank reviewer for reminding us to add more details of the sequencing reads. For 16s data, the median read size is 50788 and the range is from 7041 to 93953. For the shotgun data, after preprocessing and decontamination, the median read depth is 19476595. The range is from 6106173 to 48289024.
 
 ## Minor point 17
 
 **Figure 2: Are Ruminococcus/Bacteroides “low” and “high” relative abundance determined according to the median abundance? Or some other way?**
 
+```{r}
+genera <- read_csv('../data/amplicon/stool/combined_5_genera.csv')
 
+# do not standardize the log transformed relative abundance 
+meta <- read_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')  %>% 
+  inner_join(genera)
+meta_ <- meta %>% 
+  select(Akkermansia:Ruminococcus)
 
+ba_top <- meta_ %>% 
+  filter(Bacteroides >= quantile(meta$Bacteroides, 0.9))
 
+ba_bot <- meta_ %>% 
+  filter(Bacteroides <= quantile(meta$Bacteroides, 0.1))
+```
+
+We thank reviewer for asking the clarification. The "high" represents the samples that have the top 10% Ruminococcus/Bacteroides relative abundance among all the samples, while the "low" for the bottom 10%.
+ 
 # Reviewer 2
 
 ## Major point 1
@@ -571,11 +607,130 @@ two %>%
            add.params = list(color = "blue", fill = "lightgray"), # Customize line
            conf.int = TRUE, # Add confidence interval
            cor.coef = TRUE, # Add correlation coefficient.
-           cor.coeff.args = list(method = "pearson",  label.sep = "\n") )
+           cor.coeff.args = list(method = "pearson",  label.sep = "\n") ) +
+  ggsave('../figs/amplicon/scatter_clr_log10.pdf')
 ```
 
 - Thank reviewer for pointing this out. We visualized the Pearson correlation between the CLR and the log10 transformed counts for the 5 genera that we put into the model. As depicted in the above plot, the correlation is about 1 for all of them. Therefore the log10 transformation is fine with out purpose.
 
 ## Minor point 1
 
-**The Bayesian analysis is interesting and it is good to see that this methodology is starting to be adopted also in this research area but the analysis does not mention covariates. It the assumption that the groups are sufficiently homogeneous so that no covariates need to be considered in the analysis? **
+**The Bayesian analysis is interesting and it is good to see that this methodology is starting to be adopted also in this research area but the analysis does not mention covariates. It the assumption that the groups are sufficiently homogeneous so that no covariates need to be considered in the analysis?**
+
+We thank reviewer for raising this question. The covariats included in the model will be more clear if the code is available, which we will provide alongside this rebuttal. Simply speaking, the models are actually:
+
+- CR/Toxicity ~ alpha diversity + Center
+
+- CR/Toxicity ~ Akkermansia + Bacteroides + Enterococcus + Faecalibacterium + Ruminococcus + Center
+
+Center is the most important covariate that could confound this analysis, so we added it. We also considered the disease type each patient had, but it turned out to be of little importance. 
+
+## Minor point 4
+
+**PCoA is a standard visualization in this context and it would be helpful to include this at least in the supplementary material so that we can see how the healthy and treated cases map on the familiar population landscape characterized by PCoA.**
+
+```{r}
+asv_pcoa
+```
+We thank reviewer for mentioning this. The above is a PCOA of Bray-Curtis distance done at ASV level. 
+
+## Minor point 5
+
+**The methods could provide some justification for the choice of the specific methods, including Bray-Curtis, inverse Simpson, and LefSe since there is a vast number of available alternatives, with potentially differing outcomes. It has been recently reported, for instance, that LefSe provides a larger number of positive hits (and hence potentially more false positives) than many other DA methods (https://www.biorxiv.org/content/10.1101/2021.05.10.443486v1). The choices are acceptable but the methods could benefit from brief motivation of the choices.**
+
+- According to [their paper](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2011-12-6-r60), "LEfSe determines the features (organisms, clades, operational taxonomic units, genes, or functions) most likely to explain differences between classes by coupling standard tests for statistical significance with additional tests encoding biological consistency and effect relevance." 
+
+# Reviewer 3
+
+## Major point 1
+
+**The “hypothesis-driven exploratory analysis” using five selected bacterial genera to identify the association of taxa with response seems biased to this reviewer. These five genera were previously identified in other studies as being associated with ICB and HCT, but only Bacteroides was found to be differentially abundant in the untargeted analysis. The strength of this data as possible biomarkers of response or toxicity is weak, and seems unfairly biased towards giving an association with previously-identified taxa in other disease states. The taxa should be confirmed using quantitative PCR and the data re-analyzed using machine learning.**
+
+After adjusting the filtering threshold, Ruminococcus, Bacteroides and Faecalibacterium of the 5 genera we chose appeared in the significant results in the untargeted analysis. And we picked a total of 5 genera since we aim to limit the number of covariants in the model due to the small sample size in this cohort. While machine learning is a good approach, the Bayesian method used in the current analysis is also valid, with additional benefits such as retaining the uncertainty of the coefficient estimates, and enabling posterior predictive check to quantify the impact of the coefficients. 
+
+## Major point 2
+
+**Is there any association between pathway enrichment and therapeutic toxicity when examining the shotgun metagenomics dataset? This is a major objective of the investigation, and it seems odd not to address this, and only to look at response. Even if there is no association, this should be stated by the authors.**
+
+```{r fig.height = 10, fig.width = 8, fig.align = "center"}
+# look at the pathway results
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database('metacyc_pathway_name')
+get_table_from_database('metacyc_pathway_ontology')
+
+fns <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_pcts.tsv.res$', full.names = T)
+
+feature <- fns %>% 
+  set_names(fns) %>% 
+  map(~ read_tsv(., col_names = c('pathway','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  bind_rows(.id = 'group') %>% 
+  mutate(group = str_replace(group, '../data/shotgun_output/humann3//','')) %>% 
+  mutate(group = str_replace(group, '_lefse_ready_pcts.tsv.res$','')) 
+
+# change the "N" direction to be minus score
+feature <- bind_rows(
+  feature %>% 
+    split(.$direction) %>% 
+    pluck('no') %>% 
+    mutate(score = -score),
+  feature %>% 
+    split(.$direction) %>% 
+    pluck('yes')  
+) %>% 
+  arrange(group, pathway, score) %>% 
+  mutate(pwid = str_extract(pathway, '^.+_PWY|^PWY.*_\\d{3,4}')) %>% 
+  mutate(pwid = str_replace_all(pwid, '_', '-')) %>% 
+  mutate(pwid = if_else(str_detect(pathway, '^TCA'), 'TCA', pwid)) %>% 
+  mutate(pwid = if_else(str_detect(pathway, '^NAD'), 'NAD-BIOSYNTHESIS-II', pwid)) %>% 
+  inner_join(metacyc_pathway_name %>% select(pwid, pw_name)) %>% 
+  inner_join(metacyc_pathway_ontology %>% select(pwid, l4:l9))
+  
+
+all_title_fs <- 20
+axis_text_fs <- 16
+CR <- feature %>% 
+  filter(group == 'pull_cr_d100') %>% 
+  ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
+            geom_bar( stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#925E9F', '#42B540'))  +
+            scale_fill_manual(values = c('#925E9F', '#42B540')) +
+            theme_classic() +
+            theme(axis.title.y  = element_blank(), 
+                  plot.title = element_text(size=all_title_fs),
+                  axis.title.x = element_text(size=axis_text_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position='bottom') +
+            labs(title = str_glue('Response to CR') ,
+                 y = 'Score')
+
+tox <- feature %>% 
+  filter(group == 'pull_toxicity') %>% 
+  ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
+            geom_bar(stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#0099B4', '#AD002A'))  +
+            scale_fill_manual(values = c('#0099B4', '#AD002A')) +
+            theme_classic() +
+            theme(axis.title.y  = element_blank(), 
+                  axis.title.x = element_text(size=axis_text_fs),
+                  plot.title = element_text(size=all_title_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position="bottom") +
+            labs(title = str_glue('Response to Toxicity') ,
+                 y = 'Score')
+
+cowplot::plot_grid(CR,tox,  
+          nrow = 2, 
+          rel_heights = c(1,3),
+          align = 'hv',
+          axis = 'b')
+```
+
+## Major point 4
+
+**Altered microbial abundance itself may be in fact a source of difference between CAR T patients and healthy controls, or between toxicity/response outcomes, and this possibility was not examined by the authors. Relative abundance assessment can mask the real community dynamics of the microbiota and as such a method of complete quantitative profiling should be performed (PMID: 29143816).**
+
+(Need help in answering this.)

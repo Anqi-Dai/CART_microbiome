@@ -1,0 +1,183 @@
+---
+title: "lefse shotgun pathway"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+simple <- read_csv('../data/shotgun_pheno/final_comprehensive_UPDATED_simple.csv')
+pheno <- simple %>% 
+  gather('pheno', 'value', cr_d100:crs) 
+```
+
+```{r}
+# the pathway counts table
+full <- read_tsv('../data/shotgun_output/humann3_tsv/humann3_pathabundance_CART.tsv')  %>% 
+  rename_all(funs(str_replace(., '^CART_','')))  %>% 
+  rename_all(funs(str_replace(., '_humann3$','')))
+
+all_sub_pheno <- pheno %>% 
+  split(., list(.$pheno)) %>% 
+  purrr::imap(~ filter(.data = ., value != 'not_assessed'))
+
+all_sub_pheno %>% 
+  imap(function(.x, .y){
+    select(.data = .x, value) %>% 
+      t() %>% 
+      write.table(str_glue('../data/shotgun_output/humann3/pull_{.y}.txt'), sep = '\t', quote = F, row.names = T, col.names = F)
+  })
+
+all_pcts <- all_sub_pheno %>% 
+  map(~ pull(.data = ., fid) ) %>% 
+  imap(~ full %>% select(`# Pathway`, matches(.x)) %>% 
+         write_tsv(str_glue('../data/shotgun_output/humann3/pull_{.y}_pcts.tsv')))
+```
+
+Snakemake do the normalization and the split
+
+```{r}
+# add a filtering step here 
+# 50 and 25% 
+pcts <- read_tsv('../data/shotgun_output/humann3/humann_final_out/pull_cr_d100_pcts_cpm_unstratified.tsv') %>% 
+  gather('sampleid', 'cpm', names(.)[2]:names(.)[ncol(.)]) %>% 
+  rename(pw = `# Pathway`)
+
+keeppw <- pcts %>% 
+  filter(cpm > 50) %>%
+  ungroup() %>% 
+  count(pw) %>% 
+  filter(n > floor(nrow(simple) * 0.25)) %>% 
+  pull(pw)
+
+cts_fil <- pcts %>% 
+  filter(pw %in% keeppw) %>% 
+  spread('sampleid', 'cpm', fill = 0)
+
+cts_fil %>% 
+  write_tsv('../data/shotgun_output/humann3/humann_final_out/pull_cr_d100_pcts_cpm_unstratified_fil.tsv')
+```
+
+```{r}
+# tox
+pcts <- read_tsv('../data/shotgun_output/humann3/humann_final_out/pull_toxicity_pcts_cpm_unstratified.tsv') %>% 
+  gather('sampleid', 'cpm', names(.)[2]:names(.)[ncol(.)]) %>% 
+  rename(pw = `# Pathway`)
+
+keeppw <- pcts %>% 
+  filter(cpm > 50) %>%
+  ungroup() %>% 
+  count(pw) %>% 
+  filter(n > floor(nrow(simple) * 0.25)) %>% 
+  pull(pw)
+
+cts_fil <- pcts %>% 
+  filter(pw %in% keeppw) %>% 
+  spread('sampleid', 'cpm', fill = 0)
+
+cts_fil %>% 
+  write_tsv('../data/shotgun_output/humann3/humann_final_out/pull_toxicity_pcts_cpm_unstratified_fil.tsv')
+```
+
+Snakemake do the binding 
+
+```{r}
+# PATHWAY
+# I already normalized the pcts so don't need to normalize again here 
+fns <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_pcts.tsv$')
+    
+cmds <- tibble(
+  fns = fns
+) %>% 
+  mutate(format_cmd = str_glue('format_input.py {fns}  {fns}.in -c 1 -u 2')) %>% 
+  mutate(run_cmd = str_glue('run_lefse.py {fns}.in  {fns}.res')) %>% 
+  mutate(plot_cmd = str_glue('plot_res.py {fns}.res {fns}.pdf --format pdf  --feature_font_size 4 --width 10 --dpi 300 --title {fns}')) %>% 
+  select(-fns) %>% 
+  gather() %>% 
+  select(value) %>% 
+  write_csv('../data/shotgun_output/humann3/lefse_run_cmd.sh', col_names = F)
+```
+
+```{r}
+# look at the pathway results
+library(vdbR)
+connect_database('~/dbConfig.txt')
+get_table_from_database('metacyc_pathway_name')
+get_table_from_database('metacyc_pathway_ontology')
+
+fns <- list.files('../data/shotgun_output/humann3/', pattern = 'lefse_ready_pcts.tsv.res$', full.names = T)
+
+feature <- fns %>% 
+  set_names(fns) %>% 
+  map(~ read_tsv(., col_names = c('pathway','xx','direction','score','pval')) %>% 
+        filter(!is.na(score))) %>% 
+  bind_rows(.id = 'group') %>% 
+  mutate(group = str_replace(group, '../data/shotgun_output/humann3//','')) %>% 
+  mutate(group = str_replace(group, '_lefse_ready_pcts.tsv.res$','')) 
+
+# change the "N" direction to be minus score
+feature <- bind_rows(
+  feature %>% 
+    split(.$direction) %>% 
+    pluck('no') %>% 
+    mutate(score = -score),
+  feature %>% 
+    split(.$direction) %>% 
+    pluck('yes')  
+) %>% 
+  arrange(group, pathway, score) %>% 
+  mutate(pwid = str_extract(pathway, '^.+_PWY|^PWY.*_\\d{3,4}')) %>% 
+  mutate(pwid = str_replace_all(pwid, '_', '-')) %>% 
+  mutate(pwid = if_else(str_detect(pathway, '^TCA'), 'TCA', pwid)) %>% 
+  mutate(pwid = if_else(str_detect(pathway, '^NAD'), 'NAD-BIOSYNTHESIS-II', pwid)) %>% 
+  inner_join(metacyc_pathway_name %>% select(pwid, pw_name)) %>% 
+  inner_join(metacyc_pathway_ontology %>% select(pwid, l4:l9))
+  
+
+all_title_fs <- 20
+axis_text_fs <- 16
+CR <- feature %>% 
+  filter(group == 'pull_cr_d100') %>% 
+  ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
+            geom_bar( stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#925E9F', '#42B540'))  +
+            scale_fill_manual(values = c('#925E9F', '#42B540')) +
+            theme_classic() +
+            theme(axis.title.y  = element_blank(), 
+                  plot.title = element_text(size=all_title_fs),
+                  axis.title.x = element_text(size=axis_text_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position='bottom') +
+            labs(title = str_glue('Response to CR') ,
+                 y = 'Score')
+
+tox <- feature %>% 
+  filter(group == 'pull_toxicity') %>% 
+  ggplot(aes(x = reorder(pathway, score), y = score, fill = direction)) +
+            geom_bar(stat = 'identity') +
+            coord_flip() +
+            scale_color_manual(values = c('#0099B4', '#AD002A'))  +
+            scale_fill_manual(values = c('#0099B4', '#AD002A')) +
+            theme_classic() +
+            theme(axis.title.y  = element_blank(), 
+                  axis.title.x = element_text(size=axis_text_fs),
+                  plot.title = element_text(size=all_title_fs),
+                  axis.text.x = element_text(size=axis_text_fs),
+                  legend.position="bottom") +
+            labs(title = str_glue('Response to Toxicity') ,
+                 y = 'Score')
+
+cowplot::plot_grid(CR,tox,  
+          nrow = 2, 
+          rel_heights = c(1,3),
+          align = 'hv',
+          axis = 'b')
+```
+

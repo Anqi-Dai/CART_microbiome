@@ -75,8 +75,7 @@ sub_phenos %>%
 
 ```{r}
 # the pathway counts table
-full <- read_tsv('../data/shotgun_output/humann3_tsv/humann3_pathabundance_CART.tsv')  %>% 
-  rename_all(funs(str_replace(., '^CART_','')))  %>% 
+full <- read_tsv('../data/shotgun_output/humann3_tsv/humann3_pathabundance_cpm_joined_unstratified.tsv')  %>% 
   rename_all(funs(str_replace(., '_humann3$','')))
 
 pcts <- sub_phenos %>% 
@@ -141,7 +140,7 @@ all_pcts <- all_sub_pheno %>%
 ```
 
 ```{r}
-# add a filtering step here 
+# add a filtering step here after the normalization in the snakemake 
 # 50 and 25% 
 pcts <- read_tsv('../data/shotgun_output/humann3/humann_final_out/pull_cr_d100_pcts_cpm_unstratified.tsv') %>% 
   gather('sampleid', 'cpm', names(.)[2]:names(.)[ncol(.)]) %>% 
@@ -181,6 +180,8 @@ cts_fil <- pcts %>%
 
 cts_fil %>% 
   write_tsv('../data/shotgun_output/humann3/humann_final_out/pull_toxicity_pcts_cpm_unstratified_fil.tsv')
+
+# and then bind with snakemake
 ```
 
 

@@ -92,7 +92,7 @@ df %>%
    theme(axis.title = element_text(size = 0)) +
   theme(axis.text = element_text(size = 14)) +
   labs(title = 'Toxicity') +
-  ggsave('../figs/amplicon/bayesian_genera_tox.pdf', width = 5, height = 4)
+  ggsave('../figs/amplicon/bayesian_genera_tox_log10.pdf', width = 5, height = 4)
 ```
    
    
@@ -245,7 +245,7 @@ df %>%
    theme(axis.title = element_text(size = 0)) +
   theme(axis.text = element_text(size = 14)) +
   labs(title = 'CR') +
-  ggsave('../figs/amplicon/bayesian_genera_cr.pdf', width = 5, height = 4)
+  ggsave('../figs/amplicon/bayesian_genera_cr_log10.pdf', width = 5, height = 4)
 ```
 
 
