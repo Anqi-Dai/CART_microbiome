@@ -54,7 +54,7 @@ gtox <- ulam(
         a[location] ~ dnorm( 0 , 0.5 )
     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 16)
 precis(gtox, prob = 0.95)   
-plot(precis(gtox, depth = 2, prob = 0.95) )  
+plot(precis(gtox, depth = 2, prob = 0.95) )   
 # the  Ruminococcus looks more significant now
 ```
 
