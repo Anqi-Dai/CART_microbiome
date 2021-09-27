@@ -6,7 +6,7 @@ output:
   html_document:
     toc: true
     toc_float: true
-    toc_depth: 3
+    toc_depth: 3 
 ---
 
 ```{r setup, include=FALSE}
@@ -17,7 +17,9 @@ knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
 library(rethinking)
 library(tidyverse) 
 library(ggpubr)
-
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+library(tidybayes)
 ```
 
 # CR/Toxicity ~ alpha diversity + center
@@ -26,21 +28,13 @@ library(ggpubr)
 
 ```{r}
 meta <- read_csv('../data/amplicon/stool/combined_2_meta.csv') %>% 
-  mutate(logdiv_s = scale(log(simpson_reciprocal))) %>%  
+  mutate(logdiv_s = as.numeric(scale(log(simpson_reciprocal)))) %>%  
   mutate(tox = if_else(toxicity == 'yes', 1, 0),
          cr100 = if_else(cr_d100 == 'yes', 1, 0),
          loca = if_else(center == 'M', 1, 2)) %>%  # MSK 1 ; Upenn 2
   mutate(center = factor(center),
          toxicity = factor(toxicity, levels = c('no','yes')),
-         cr_d100 = factor(cr_d100, levels = c('no','yes'))) %>%
-  # have a 2 cutpoint for the CRS
-  mutate(crs3 = case_when(
-    crsgrade == 0 ~ 1,
-    crsgrade == 1 ~ 2,
-    crsgrade >= 2 ~ 3
-  )) 
-
-
+         cr_d100 = factor(cr_d100, levels = c('no','yes'))) 
 
 meta %>% write_csv('../data/amplicon/stool/combined_2_meta_expanded.csv')
 ```
@@ -75,7 +69,7 @@ mtox <- ulam(
         logit(p) <- b*logdiv_s + a[location] ,
         b ~ dnorm( 0 , 2), 
         a[location] ~ dnorm( 0 , 0.5 )
-    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 16)
 
 # the std of b is 2, since we assume the microbiome could have big impact on immunology (based on our previous understanding and knowledge )
 precis(mtox,  prob = 0.95)
@@ -103,34 +97,13 @@ df %>%
   #geom_hline(yintercept = 1, color = "red", size = 1) +
    theme(axis.title = element_text(size = 0)) +
   theme(axis.text = element_text(size = 14)) +
-  labs(title = 'Toxicity') +
-  ggsave('../figs/amplicon/bayesian_div_tox.pdf', width = 5, height = 4)
+  labs(title = 'Toxicity') 
 
-
+ggsave('../figs/amplicon/bayesian_div_tox.pdf', width = 5, height = 4)
 ```
+There is baseline difference between penn and Msk and MSK has higher tox rage in general.
+it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
 
-
-```{r}
-# there is baseline difference between penn and Msk and MSK has higher tox rage in general.
-# it doesn't seem diversity has a clear association with tox rate after correcting for center wise difference
-div_value <- c(-1, 1)
-
-
-```
-
-```{r}
-# another model with the crs grade 0,1,>=2 
-# mcrs3 <- ulam(
-#     alist(
-#         crs3 ~ dordlogit( phi , cutpoints ),
-#         phi <- b*logdiv_s + a[location] ,
-#         b ~ dnorm( 0 , 1),  
-#         a[location] ~ dnorm( 0 , 0.5 ),
-#         cutpoints ~ dnorm( 0 , 1.5 )
-#     ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
-# plot(precis(mcrs3, depth = 2, prob = 0.95) ) 
-# the cutpoints are not of much interet, this suggests that the diversity really isn't having a correlation?
-```
 
 ### Prior
 
@@ -150,12 +123,15 @@ prior_tox <- list(m = 1, p = 2) %>%
          inv_logit( prior$b * div_value[idx] + prior$a[, center_] ) 
       })
     
-    diff = abs( cols[[1]] -cols[[2]] )
+    diff =  cols[[1]] -cols[[2]] 
     ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
-    return(ret)
+    return(diff)
   }) 
-hist(prior_tox$p)
+boxplot(prior_tox$p)
+hist(c(prior_tox$m$lowdiv, prior_tox$p$lowdiv)) 
+hist(c(prior_tox$m$highdiv, prior_tox$p$highdiv))
 ```
+
 
 ### Posterior
 
@@ -263,13 +239,13 @@ mcr <- ulam(
         logit(p) <- b*logdiv_s + a[location] ,
         b ~ dnorm( 0 , 2),  
         a[location] ~ dnorm( 0 , 0.5 )
-    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 16)
 
 precis(mcr,  prob = 0.95)
 plot(precis(mcr, depth = 2, prob = 0.95 ) , pars = ('b'), labels = c('simpson_reciprocal'))
 # there isn't much difference in baseline level between the centers
 # diversity seems to be positively associating with CR when the prior is too large sd
-# if using appropriate prior the association is less sure
+# if using appropriate prior the association is less sure 
  
 ```
 
@@ -296,14 +272,14 @@ df %>%
   #geom_hline(yintercept = 1, color = "red", size = 1) +
    theme(axis.title = element_text(size = 0)) +
   theme(axis.text = element_text(size = 14)) +
-  labs(title = 'CR') +
-  ggsave('../figs/amplicon/bayesian_div_cr.pdf', width = 5, height = 4)
+  labs(title = 'CR') 
+ggsave('../figs/amplicon/bayesian_div_cr.pdf', width = 5, height = 4)
 ```
 
 
 ```{r}
 # doing a prior check
-prior <- extract.prior( mcr , n=1e4 ) 
+prior <- extract.prior( mcr , n=1e4, cores =16 ) 
 
 prior_cr <- list(m = 1, p = 2) %>% 
   map(function(center_){
@@ -313,10 +289,15 @@ prior_cr <- list(m = 1, p = 2) %>%
          inv_logit( prior$b * div_value[idx] + prior$a[, center_] ) 
       })
     
-    diff = abs( cols[[1]] -cols[[2]] )
+    diff = cols[[1]] -cols[[2]] 
     ret = quantile(diff , probs = c(0.025, 0.5, 0.975))
-    return(ret)
+    return(diff)
   })
+
+
+boxplot(prior_cr$p)
+hist(c(prior_cr$m$lowdiv, prior_cr$p$lowdiv)) 
+hist(c(prior_cr$m$highdiv, prior_cr$p$highdiv)) 
 ```
 ### posterior 
 
@@ -330,10 +311,35 @@ post_cr <- list(m = 1, p = 2) %>%
       map(function(idx){
          inv_logit( post$b * div_value[idx] + post$a[, center_] ) 
       }) 
-    return(cols)
+    diff =  cols[[1]] -cols[[2]] 
+    return(diff)
   }) 
 
+hist(c(post_cr$m, post_cr$p)) 
+hist(c(post_cr$m$highdiv, post_cr$p$highdiv))
+```
 
+
+```{r}
+# if putting them together (the prior and the post)
+both <- bind_rows(
+  data_frame(
+      coeff = c(prior_cr$m, prior_cr$p),
+      grp = 'prior'
+    ),
+  data_frame(
+      coeff = c(post_cr$m, post_cr$p),
+      grp = 'post'
+    )
+)
+ 
+both %>% 
+    ggplot(aes(x = coeff, y = grp, color = grp)) +
+    stat_pointinterval(.width = c(.66, .95))
+```
+
+
+```{r}
 # plot the histogram of the probs corresponding to low and high diversity
 # msk
 tibble(

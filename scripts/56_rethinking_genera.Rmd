@@ -36,7 +36,6 @@ meta %>% select(Akkermansia:Ruminococcus) %>%
   summary
 ```
 
-
 ```{r}
 set.seed(123)   
 dat_list <- list(
@@ -52,7 +51,7 @@ dat_list <- list(
 ```
 
 ```{r}
-gtox <- ulam(
+gtox <- ulam(  
     alist(
         tox ~ dbinom( 1 , p ) ,
         logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + a[location] ,
@@ -91,13 +90,54 @@ df %>%
   geom_hline(yintercept = 0, color = "red", size = 1) +
    theme(axis.title = element_text(size = 0)) +
   theme(axis.text = element_text(size = 14)) +
-  labs(title = 'Toxicity') +
-  ggsave('../figs/amplicon/bayesian_genera_tox_log10.pdf', width = 5, height = 4)
+  labs(title = 'Toxicity') 
+ggsave('../figs/amplicon/bayesian_genera_tox_log10.pdf', width = 5, height = 4)
 ```
-   
+
+### Prior check
+
+I will just do something similar to the nutrition project : the prior annd post coeff forest plot
+
+```{r}
+theme_set(theme_tidybayes() + cowplot::panel_border())
+# logit(p) <- ba*Akkermansia + bb*Bacteroides + be*Enterococcus + bf*Faecalibacterium + br*Ruminococcus + a[location]
+prior <- extract.prior( gtox , n=4000 ) %>% as.tibble()  %>% select(-a) %>% mutate(grp = 'prior')
+post <- extract.samples(gtox) %>% as.tibble()  %>% select(-a) %>% mutate(grp = 'post')
+# comparing prior and post 
+tox <- bind_rows(prior, post) %>% 
+  gather('term', 'coeff', ba:br) %>% 
+  mutate(genus = case_when(
+    term == 'ba' ~ 'Akkermansia',
+    term == 'bb' ~ 'Bacteroides',
+    term == 'be' ~ 'Enterococcus',
+    term == 'bf' ~ 'Faecalibacterium',
+    term == 'br' ~ 'Ruminococcus'
+  ))
+
+post_order <- tox %>% 
+  filter(grp == 'post') %>% 
+  group_by(term, genus) %>% 
+  summarise(q50 = median(coeff)) %>% 
+  arrange(-q50) %>% 
+  pull(genus)
+
+tox %>%
+  mutate(genus = factor(genus, levels = post_order)) %>% 
+  ggplot(aes(x = coeff, y = grp, color = grp)) +
+  stat_pointinterval(.width = c(.66, .95)) +
+  scale_color_manual(values = c('#EC0000','#00468B')) +
+  geom_vline(xintercept = 0, col = 'gray', linetype = 'dashed') +
+  facet_grid(genus ~ .) +
+  labs(x = 'Regression coefficients',
+       y = '') +
+  theme(legend.position = 'none')
+```
+
+
+### posterior check 
    
 ```{r}
-post <- extract.samples(gtox) 
+
 meta_ <- meta %>% 
   select(Akkermansia:Ruminococcus)
 
@@ -140,13 +180,14 @@ res_bot <- pmap(ba_bot, function(Akkermansia, Bacteroides, Enterococcus, Faecali
   bind_rows(.id = 'pt')   
 
 # plot them together in one 
-bind_rows(
+bacteroides_top_bottom_10 <- bind_rows(
   res_top %>% mutate(grp = 'top'),
   res_bot %>% mutate(grp = 'bot')
 ) %>% 
   gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white', add = 'mean',
-                  xlab = 'Predicted probability of Toxicity', ylab = 'Probability density') +
-  ggsave('../figs/predicted_tox_bacteroides_top_bottom_10.pdf', width = 7, height = 5)
+                  xlab = 'Predicted probability of Toxicity', ylab = 'Probability density') 
+
+ggsave('../figs/predicted_tox_bacteroides_top_bottom_10.pdf', width = 7, height = 5)
 
 bind_rows(
   res_top %>% mutate(grp = 'top'),
@@ -158,48 +199,6 @@ bind_rows(
 
 ```
 
-### posterior check 
-
-```{r}
-post <- extract.samples(gtox) 
-# using the patient with highest and lowest Bacteroides data to plug in
-# find the patients
-bl <- meta %>% 
-  arrange(Bacteroides) %>% 
-  slice(1) %>% 
-  select(Akkermansia:Ruminococcus)
-
-bh <- meta %>% 
-  arrange(-Bacteroides) %>% 
-  slice(1) %>% 
-  select(Akkermansia:Ruminococcus)
-
-
-pl <- inv_logit( post$ba * (-1.612806	) + post$bb * (-5.69897		) + post$be * (-5.69897	) +  post$bf * (-5.69897		) + post$br * (-0.5244935) + post$a[, 1] ) 
-
-ph <- inv_logit( post$ba * (-2.286752	) + post$bb * (-0.4575058) + post$be * (-1.745601	) +  post$bf * (-5.69897) + post$br * (-4.050354) + post$a[, 1] )
-
-
-bind_rows(
-  tibble(
-    value = pl,
-    grp = 'low'
-  ),
-  tibble( 
-    value = ph,
-    grp = 'high'
-  )
-) %>% 
-  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',add = 'mean',title = 'MSK',
-              xlab = 'Predicted probability of toxicity', ylab = 'Probability density')
-  
-bind_rows(
-  tibble(value = pl,grp = 'low'),
-  tibble( value = ph,grp = 'high')
-)   %>% 
-  group_by(grp) %>% 
-  summarise(m = mean(value))
-```
 
 
 ## CR
@@ -215,7 +214,7 @@ gcr <- ulam(
         bf ~ dnorm( 0 , 1),
         br ~ dnorm( 0 , 1),
         a[location] ~ dnorm( 0 , 0.5 )
-    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 8)
+    ) , data=dat_list , chains=4 , log_lik=TRUE , cores = 16)
 precis(gcr, prob = 0.95) 
 plot(precis(gcr, depth = 2, prob = 0.95) ) 
 # I think the Ruminococcus still holds for the CR
@@ -244,47 +243,11 @@ df %>%
   geom_hline(yintercept = 0, color = "red", size = 1) +
    theme(axis.title = element_text(size = 0)) +
   theme(axis.text = element_text(size = 14)) +
-  labs(title = 'CR') +
-  ggsave('../figs/amplicon/bayesian_genera_cr_log10.pdf', width = 5, height = 4)
+  labs(title = 'CR') 
+ggsave('../figs/amplicon/bayesian_genera_cr_log10.pdf', width = 5, height = 4)
 ```
-
 
 ### posterior check 
-
-
-```{r}
-post <- extract.samples(gcr) 
-# using the patient with highest and lowest Ruminococcus data to plug in
-# find the patients
-rl <- meta %>% 
-  arrange(Ruminococcus) %>% 
-  slice(1) %>% 
-  select(Akkermansia:Ruminococcus)
-
-rh <- meta %>% 
-  arrange(-Ruminococcus) %>% 
-  slice(1) %>% 
-  select(Akkermansia:Ruminococcus)
-
-pl <- inv_logit( post$ba * (-3.517128) + post$bb * (-2.447201	) + post$be * (-2.504205	) +  post$bf * (-5.69897	) + post$br * (-5.69897) + post$a[, 1] ) 
-
-ph <- inv_logit( post$ba * (-1.845325	) + post$bb * (-3.052386) + post$be * (-5.69897) +  post$bf * (-5.69897) + post$br * (-0.373353) + post$a[, 1] )
-
-bind_rows(
-  tibble(value = pl,grp = 'low'),
-  tibble( value = ph,grp = 'high')
-) %>% 
-  gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white',title = 'MSK', add = 'mean',
-              xlab = 'Predicted probability of CR d100', ylab = 'Probability density')
-
-
-bind_rows(
-  tibble(value = pl,grp = 'low'),
-  tibble( value = ph,grp = 'high')
-)   %>% 
-  group_by(grp) %>% 
-  summarise(m = mean(value))
-```
 
 ```{r}
 # ruminococcus relab quantile
@@ -390,7 +353,7 @@ bind_rows(
   res_bot %>% mutate(grp = 'bot')
 ) %>% 
   gghistogram(x = 'value',bins = 30, fill = 'grp', palette = 'nejm', color = 'white', add = 'mean',
-                  xlab = 'Predicted probability of CR d100', ylab = 'Probability density')+
+                  xlab = 'Predicted probability of CR d100', ylab = 'Probability density')
   ggsave('../figs/predicted_CR_Ruminococcus_top_bottom_10.pdf', width = 7, height = 5)
 
 bind_rows(
